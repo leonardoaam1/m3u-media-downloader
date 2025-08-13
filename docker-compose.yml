@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://media_user:yZyERmabaBeJ@db:5432/mediadownloader
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=your-secret-key-here
+      - TMDB_API_KEY=your-tmdb-api-key-here
+    volumes:
+      - ./logs:/app/logs
+      - ./temp_downloads:/app/temp_downloads
+      - ./uploads:/app/uploads
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  celery_worker:
+    build: .
+    command: celery -A workers.celery_app worker --loglevel=info -Q downloads,transfers
+    environment:
+      - DATABASE_URL=postgresql://media_user:yZyERmabaBeJ@db:5432/mediadownloader
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=your-secret-key-here
+      - TMDB_API_KEY=your-tmdb-api-key-here
+    volumes:
+      - ./logs:/app/logs
+      - ./temp_downloads:/app/temp_downloads
+      - ./uploads:/app/uploads
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  celery_beat:
+    build: .
+    command: celery -A workers.celery_app beat --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://media_user:yZyERmabaBeJ@db:5432/mediadownloader
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=your-secret-key-here
+      - TMDB_API_KEY=your-tmdb-api-key-here
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  db:
+    image: postgres:16
+    environment:
+      - POSTGRES_DB=mediadownloader
+      - POSTGRES_USER=media_user
+      - POSTGRES_PASSWORD=yZyERmabaBeJ
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.2-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
