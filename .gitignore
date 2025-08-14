@@ -160,8 +160,15 @@ cython_debug/
 #  *.iml
 #  *.ipr
 #  *.iws
+.idea/
+*.iml
+*.ipr
+*.iws
 
-# Project specific
+# VS Code
+.vscode/
+
+# MediaDown specific
 logs/
 temp_downloads/
 uploads/
@@ -169,40 +176,25 @@ uploads/
 *.sqlite
 *.sqlite3
 
-# SSL certificates
-*.pem
-*.key
-*.crt
+# Environment variables
+.env
+.env.local
+.env.production
 
-# Backup files
-*.bak
-*.backup
-*.old
-
-# OS generated files
+# OS specific
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
-# IDE files
-.vscode/
-.idea/
+# Temporary files
+*.tmp
+*.temp
+*.bak
 *.swp
 *.swo
-*~
 
-# Supervisor logs
-*.log
+# Docker
+.dockerignore
 
-# Nginx logs
-nginx.log
-
-# Redis dump
-dump.rdb
-
-# PostgreSQL
-*.sql
+# Backup files
+backup_*.sql
+*.backup

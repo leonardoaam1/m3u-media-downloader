@@ -393,3 +393,5 @@ Contribuições são bem-vindas! Por favor, leia o [CONTRIBUTING.md](CONTRIBUTIN
 **Desenvolvido com ❤️ para automatizar downloads de conteúdo audiovisual**
 
 
+
+
