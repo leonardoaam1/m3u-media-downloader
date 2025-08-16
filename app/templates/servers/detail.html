@@ -1,0 +1,528 @@
+{% extends "base/layout.html" %}
+
+{% block title %}{{ server.name }} - MediaDown{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+                            <li class="breadcrumb-item"><a href="{{ url_for('servers.servers_list') }}">Servidores</a></li>
+                            <li class="breadcrumb-item active">{{ server.name }}</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h3 mb-1">
+                        <i class="bi bi-server me-2"></i>
+                        {{ server.name }}
+                    </h1>
+                    <p class="text-muted mb-0">Detalhes e monitoramento do servidor</p>
+                </div>
+                <div>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-primary" onclick="testConnection()" id="test-btn">
+                            <i class="bi bi-wifi me-1"></i>
+                            Testar Conexão
+                        </button>
+                        {% if current_user.has_permission('manage_servers') %}
+                        <a href="{{ url_for('servers.edit_server', server_id=server.id) }}" class="btn btn-outline-warning">
+                            <i class="bi bi-pencil me-1"></i>
+                            Editar
+                        </a>
+                        {% endif %}
+                        <a href="{{ url_for('servers.servers_list') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>
+                            Voltar
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Server Status Card -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-center">
+                                <div class="me-3">
+                                    <i class="bi bi-server display-4 text-{{ 'success' if server.status.value == 'online' else 'danger' if server.status.value == 'offline' else 'warning' }}"></i>
+                                </div>
+                                <div>
+                                    <h4 class="mb-1">{{ server.name }}</h4>
+                                    {% if server.description %}
+                                        <p class="text-muted mb-1">{{ server.description }}</p>
+                                    {% endif %}
+                                    <div>
+                                        <span class="badge bg-secondary me-1">{{ server.protocol.value.upper() }}</span>
+                                        <span class="badge bg-info me-1">{{ server.host }}:{{ server.port }}</span>
+                                        {% for content_type in server.content_types_list %}
+                                            <span class="badge bg-outline-primary me-1">
+                                                {% if content_type == 'movie' %}
+                                                    <i class="bi bi-film me-1"></i>Filmes
+                                                {% elif content_type == 'series' %}
+                                                    <i class="bi bi-tv me-1"></i>Séries
+                                                {% elif content_type == 'novela' %}
+                                                    <i class="bi bi-broadcast me-1"></i>Novelas
+                                                {% endif %}
+                                            </span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-md-end">
+                            <div class="mb-2">
+                                <span class="status-badge status-{{ server.status.value }} fs-5" id="server-status">
+                                    {{ server.status.value.title() }}
+                                </span>
+                            </div>
+                            <div>
+                                <small class="text-muted">
+                                    Última verificação: 
+                                    {% if server.last_check %}
+                                        {{ server.last_check.strftime('%d/%m/%Y %H:%M') }}
+                                    {% else %}
+                                        Nunca
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Downloads Total</h6>
+                            <h2 class="card-title mb-0">{{ recent_downloads | length }}</h2>
+                        </div>
+                        <div class="opacity-75">
+                            <i class="bi bi-download display-6"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Completados</h6>
+                            <h2 class="card-title mb-0">{{ recent_downloads | selectattr('status.value', 'equalto', 'completed') | list | length }}</h2>
+                        </div>
+                        <div class="opacity-75">
+                            <i class="bi bi-check-circle display-6"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Em Progresso</h6>
+                            <h2 class="card-title mb-0">{{ recent_downloads | selectattr('status.value', 'in', ['downloading', 'transferring']) | list | length }}</h2>
+                        </div>
+                        <div class="opacity-75">
+                            <i class="bi bi-arrow-down-circle display-6"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            {% set disk_usage = server.disk_usage_dict %}
+            <div class="card bg-{{ 'danger' if disk_usage and disk_usage.percentage > 90 else 'warning' if disk_usage and disk_usage.percentage > 75 else 'secondary' }} text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Espaço Usado</h6>
+                            <h2 class="card-title mb-0">
+                                {% if disk_usage %}
+                                    {{ disk_usage.percentage }}%
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </h2>
+                        </div>
+                        <div class="opacity-75">
+                            <i class="bi bi-hdd display-6"></i>
+                        </div>
+                    </div>
+                    {% if disk_usage %}
+                    <div class="mt-2">
+                        <small class="opacity-75">
+                            {{ disk_usage.used }} / {{ disk_usage.total }}
+                        </small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Server Details and Recent Downloads -->
+    <div class="row">
+        <div class="col-lg-4">
+            <!-- Server Configuration -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-gear me-2"></i>
+                        Configuração
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="text-muted">Host:</label>
+                        <div class="fw-semibold">{{ server.host }}</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="text-muted">Protocolo:</label>
+                        <div>
+                            <span class="badge bg-secondary">{{ server.protocol.value.upper() }}</span>
+                            <span class="text-muted ms-2">Porta {{ server.port }}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="text-muted">Usuário:</label>
+                        <div class="fw-semibold">{{ server.username }}</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="text-muted">Diretório Base:</label>
+                        <div><code>{{ server.base_path }}</code></div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="text-muted">Tipos de Conteúdo:</label>
+                        <div>
+                            {% for content_type in server.content_types_list %}
+                                <span class="badge bg-outline-primary me-1 mb-1">
+                                    {% if content_type == 'movie' %}
+                                        <i class="bi bi-film me-1"></i>Filmes
+                                    {% elif content_type == 'series' %}
+                                        <i class="bi bi-tv me-1"></i>Séries
+                                    {% elif content_type == 'novela' %}
+                                        <i class="bi bi-broadcast me-1"></i>Novelas
+                                    {% endif %}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="text-muted">Criado em:</label>
+                        <div>{{ server.created_at.strftime('%d/%m/%Y %H:%M') if server.created_at else 'N/A' }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Disk Usage -->
+            {% if disk_usage %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-hdd me-2"></i>
+                        Uso de Disco
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <div class="progress mx-auto" style="width: 150px; height: 150px; border-radius: 50%; background: conic-gradient(var(--bs-{{ 'danger' if disk_usage.percentage > 90 else 'warning' if disk_usage.percentage > 75 else 'success' }}) {{ disk_usage.percentage * 3.6 }}deg, #e9ecef 0deg);">
+                            <div class="d-flex align-items-center justify-content-center w-100 h-100 bg-white rounded-circle" style="margin: 10px;">
+                                <div class="text-center">
+                                    <div class="h3 mb-0">{{ disk_usage.percentage }}%</div>
+                                    <small class="text-muted">Usado</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="border-end">
+                                <div class="fw-bold">{{ disk_usage.used }}</div>
+                                <small class="text-muted">Usado</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="fw-bold">{{ disk_usage.free }}</div>
+                            <small class="text-muted">Livre</small>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center mt-3">
+                        <small class="text-muted">Total: {{ disk_usage.total }}</small>
+                    </div>
+                    
+                    <button class="btn btn-outline-primary btn-sm w-100 mt-3" onclick="updateDiskUsage()">
+                        <i class="bi bi-arrow-clockwise me-1"></i>
+                        Atualizar
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Connection Test -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-wifi me-2"></i>
+                        Teste de Conectividade
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="connection-result">
+                        <p class="text-muted">Clique no botão para testar a conectividade com o servidor.</p>
+                    </div>
+                    <div class="d-grid">
+                        <button class="btn btn-primary" onclick="testConnection()" id="test-connection-btn">
+                            <i class="bi bi-wifi me-1"></i>
+                            Testar Conexão
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-8">
+            <!-- Recent Downloads -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-clock-history me-2"></i>
+                        Downloads Recentes
+                    </h5>
+                    <div>
+                        <a href="{{ url_for('downloads.downloads_list', server_id=server.id) }}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-list me-1"></i>
+                            Ver Todos
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if recent_downloads %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Título</th>
+                                        <th>Tipo</th>
+                                        <th>Status</th>
+                                        <th>Progresso</th>
+                                        <th>Data</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for download in recent_downloads %}
+                                    <tr>
+                                        <td>
+                                            <div>
+                                                <strong>{{ download.title | truncate(40) }}</strong>
+                                                {% if download.season and download.episode %}
+                                                    <br>
+                                                    <small class="text-muted">S{{ download.season }}E{{ download.episode }}</small>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-{{ 'primary' if download.content_type == 'movie' else 'success' if download.content_type == 'series' else 'info' }}">
+                                                {{ download.content_type.title() }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="status-badge status-{{ download.status.value }}">
+                                                {{ download.status.value.title() }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if download.status.value in ['downloading', 'transferring'] %}
+                                                <div class="progress" style="height: 15px; width: 80px;">
+                                                    <div class="progress-bar" style="width: {{ download.progress_percentage or 0 }}%"></div>
+                                                </div>
+                                                <small class="text-muted">{{ "%.1f"|format(download.progress_percentage or 0) }}%</small>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <small>{{ download.created_at.strftime('%d/%m/%Y') }}</small>
+                                        </td>
+                                        <td>
+                                            <a href="{{ url_for('downloads.download_detail', download_id=download.id) }}" 
+                                               class="btn btn-sm btn-outline-info" title="Ver Detalhes">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-download display-1 text-muted"></i>
+                            <h5 class="text-muted mt-3">Nenhum download encontrado</h5>
+                            <p class="text-muted">Este servidor ainda não recebeu nenhum download.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Directory Structure -->
+            {% if server.directory_structure %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-folder-symlink me-2"></i>
+                        Estrutura de Diretórios
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for content_type, directories in server.directory_structure.items() %}
+                        <div class="col-md-6 mb-3">
+                            <h6 class="text-primary">
+                                {% if content_type == 'movie' %}
+                                    <i class="bi bi-film me-1"></i>Filmes
+                                {% elif content_type == 'series' %}
+                                    <i class="bi bi-tv me-1"></i>Séries
+                                {% elif content_type == 'novela' %}
+                                    <i class="bi bi-broadcast me-1"></i>Novelas
+                                {% endif %}
+                            </h6>
+                            <div class="border rounded p-2 bg-light" style="max-height: 200px; overflow-y: auto;">
+                                {% for directory in directories %}
+                                    <div class="d-flex align-items-center mb-1">
+                                        <i class="bi bi-folder me-2 text-warning"></i>
+                                        <small><code>{{ server.base_path }}{{ directory }}/</code></small>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function testConnection() {
+        const testBtn = document.getElementById('test-connection-btn');
+        const resultDiv = document.getElementById('connection-result');
+        const statusElement = document.getElementById('server-status');
+        
+        testBtn.disabled = true;
+        testBtn.innerHTML = '<div class="loading-spinner me-1"></div>Testando...';
+        
+        resultDiv.innerHTML = '<div class="alert alert-info">Testando conectividade...</div>';
+        
+        fetch(`/api/servers/{{ server.id }}/test`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.connected) {
+                        resultDiv.innerHTML = `
+                            <div class="alert alert-success">
+                                <i class="bi bi-check-circle me-2"></i>
+                                <strong>Conexão bem-sucedida!</strong><br>
+                                <small>${data.message}</small>
+                            </div>
+                        `;
+                        statusElement.textContent = 'Online';
+                        statusElement.className = 'status-badge status-online fs-5';
+                    } else {
+                        resultDiv.innerHTML = `
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <strong>Falha na conexão</strong><br>
+                                <small>${data.message}</small>
+                            </div>
+                        `;
+                        statusElement.textContent = 'Offline';
+                        statusElement.className = 'status-badge status-offline fs-5';
+                    }
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="bi bi-x-circle me-2"></i>
+                            <strong>Erro no teste</strong><br>
+                            <small>${data.error}</small>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error testing connection:', error);
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-x-circle me-2"></i>
+                        <strong>Erro no teste</strong><br>
+                        <small>Erro de comunicação com o servidor</small>
+                    </div>
+                `;
+            })
+            .finally(() => {
+                testBtn.disabled = false;
+                testBtn.innerHTML = '<i class="bi bi-wifi me-1"></i>Testar Conexão';
+            });
+    }
+    
+    function updateDiskUsage() {
+        // Implementation for updating disk usage
+        fetch(`/api/servers/{{ server.id }}/disk_usage`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update disk usage display
+                    location.reload(); // Simple reload for now
+                }
+            })
+            .catch(error => console.error('Error updating disk usage:', error));
+    }
+    
+    // Auto-refresh server status every 2 minutes
+    setInterval(() => {
+        fetch(`/api/servers/{{ server.id }}/status`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const statusElement = document.getElementById('server-status');
+                    statusElement.textContent = data.status;
+                    statusElement.className = `status-badge status-${data.status} fs-5`;
+                }
+            })
+            .catch(error => console.error('Error auto-refreshing status:', error));
+    }, 120000);
+</script>
+{% endblock %}

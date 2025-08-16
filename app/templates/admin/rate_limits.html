@@ -1,0 +1,654 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Rate Limiting - MediaDown{% endblock %}
+
+{% block page_title %}
+<i class="fas fa-shield-alt text-warning"></i> Gerenciamento de Rate Limiting
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.rate-limit-card {
+    border-left: 4px solid #ffc107;
+    transition: all 0.3s ease;
+}
+
+.rate-limit-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.client-card {
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    transition: all 0.3s ease;
+}
+
+.client-card:hover {
+    border-color: #007bff;
+    background-color: #f8f9fa;
+}
+
+.strategy-badge {
+    font-size: 0.75em;
+    padding: 0.25em 0.5em;
+}
+
+.client-id {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.9em;
+    background: #f8f9fa;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.endpoint-badge {
+    background: #e9ecef;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    margin: 0.25rem;
+    display: inline-block;
+    font-size: 0.8em;
+}
+
+.blacklist-item {
+    background: #ffe6e6;
+    border-color: #dc3545;
+}
+
+.whitelist-item {
+    background: #e6ffe6;
+    border-color: #28a745;
+}
+
+.activity-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 5px;
+}
+
+.activity-high { background-color: #dc3545; }
+.activity-medium { background-color: #ffc107; }
+.activity-low { background-color: #28a745; }
+.activity-none { background-color: #6c757d; }
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-item {
+    background: white;
+    padding: 1rem;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Statistics Overview -->
+    <div class="stats-grid">
+        <div class="stat-item">
+            <h6 class="text-muted mb-1">Total de Requests</h6>
+            <h4 class="mb-0" id="total-requests">-</h4>
+        </div>
+        <div class="stat-item">
+            <h6 class="text-muted mb-1">Requests Bloqueados</h6>
+            <h4 class="mb-0" id="blocked-requests">-</h4>
+        </div>
+        <div class="stat-item">
+            <h6 class="text-muted mb-1">Taxa de Bloqueio</h6>
+            <h4 class="mb-0" id="block-rate">-</h4>
+        </div>
+        <div class="stat-item">
+            <h6 class="text-muted mb-1">Clientes Ativos</h6>
+            <h4 class="mb-0" id="active-clients">-</h4>
+        </div>
+        <div class="stat-item">
+            <h6 class="text-muted mb-1">Blacklist</h6>
+            <h4 class="mb-0" id="blacklist-size">-</h4>
+        </div>
+        <div class="stat-item">
+            <h6 class="text-muted mb-1">Whitelist</h6>
+            <h4 class="mb-0" id="whitelist-size">-</h4>
+        </div>
+    </div>
+    
+    <!-- Controls Panel -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card rate-limit-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cogs"></i> Controles de Rate Limiting
+                    </h5>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="adaptive-mode" onchange="toggleAdaptiveMode()">
+                        <label class="form-check-label" for="adaptive-mode">
+                            Modo Adaptativo
+                        </label>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-ban text-danger"></i> Adicionar à Blacklist</h6>
+                            <div class="input-group mb-3">
+                                <input type="text" class="form-control" id="blacklist-client" placeholder="Client ID (ex: ip:192.168.1.1)">
+                                <input type="number" class="form-control" id="blacklist-duration" placeholder="Duração (segundos)" value="3600">
+                                <div class="input-group-append">
+                                    <button class="btn btn-danger" onclick="addToBlacklist()">
+                                        <i class="fas fa-ban"></i> Bloquear
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-shield-alt text-success"></i> Adicionar à Whitelist</h6>
+                            <div class="input-group mb-3">
+                                <input type="text" class="form-control" id="whitelist-client" placeholder="Client ID (ex: api_key:abc123)">
+                                <div class="input-group-append">
+                                    <button class="btn btn-success" onclick="addToWhitelist()">
+                                        <i class="fas fa-shield-alt"></i> Liberar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Detailed Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card rate-limit-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-pie"></i> Estatísticas por Estratégia
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="strategy-stats">
+                        <div class="text-center">
+                            <div class="spinner-border text-warning" role="status">
+                                <span class="sr-only">Carregando...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card rate-limit-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-users"></i> Configurações por Tipo de Cliente
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="client-configs">
+                        <div class="text-center">
+                            <div class="spinner-border text-warning" role="status">
+                                <span class="sr-only">Carregando...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Active Clients -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card rate-limit-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-network-wired"></i> Clientes Ativos
+                    </h5>
+                    <div class="input-group" style="width: 300px;">
+                        <input type="text" class="form-control" id="client-filter" placeholder="Filtrar clientes..." value="*">
+                        <div class="input-group-append">
+                            <button class="btn btn-outline-warning" onclick="loadClients()">
+                                <i class="fas fa-search"></i>
+                            </button>
+                            <button class="btn btn-outline-secondary" onclick="refreshData()">
+                                <i class="fas fa-sync"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="clients-container">
+                        <div class="text-center">
+                            <button class="btn btn-warning" onclick="loadClients()">
+                                <i class="fas fa-network-wired"></i> Carregar Clientes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Ação -->
+<div class="modal fade" id="actionModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-cog fa-spin"></i> <span id="action-title">Processando...</span>
+                </h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="progress">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-warning" 
+                         role="progressbar" style="width: 100%"></div>
+                </div>
+                <p class="mt-2 mb-0 text-center" id="action-message">Aguarde...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let refreshInterval;
+
+$(document).ready(function() {
+    loadStats();
+    loadClients();
+    
+    // Auto-refresh a cada 15 segundos
+    refreshInterval = setInterval(refreshData, 15000);
+    
+    // Parar refresh quando sair da página
+    $(window).on('beforeunload', function() {
+        if (refreshInterval) {
+            clearInterval(refreshInterval);
+        }
+    });
+});
+
+function refreshData() {
+    loadStats();
+    loadClients();
+}
+
+function loadStats() {
+    $.get('/api/admin/rate-limits/stats')
+        .done(function(data) {
+            if (data.success) {
+                updateStatsDisplay(data);
+            }
+        })
+        .fail(function() {
+            console.error('Erro carregando estatísticas de rate limiting');
+        });
+}
+
+function updateStatsDisplay(data) {
+    const globalStats = data.global_stats;
+    const redisStats = data.redis_stats;
+    
+    // Estatísticas principais
+    const totalRequests = globalStats.system_metrics?.total_requests || 0;
+    const blockedRequests = globalStats.system_metrics?.blocked_requests || 0;
+    const blockRate = totalRequests > 0 ? ((blockedRequests / totalRequests) * 100).toFixed(1) : 0;
+    
+    $('#total-requests').text(totalRequests.toLocaleString());
+    $('#blocked-requests').text(blockedRequests.toLocaleString());
+    $('#block-rate').text(blockRate + '%');
+    $('#active-clients').text((redisStats.sliding_window_keys || 0) + (redisStats.token_bucket_keys || 0));
+    $('#blacklist-size').text(globalStats.blacklist_size || 0);
+    $('#whitelist-size').text(globalStats.whitelist_size || 0);
+    
+    // Estatísticas por estratégia
+    updateStrategyStats(redisStats);
+    
+    // Configurações por cliente
+    updateClientConfigs(globalStats.client_configs, globalStats.tier_configs);
+}
+
+function updateStrategyStats(redisStats) {
+    const html = `
+        <div class="row text-center">
+            <div class="col-6">
+                <h4 class="text-primary">${redisStats.sliding_window_keys || 0}</h4>
+                <small>Sliding Window</small>
+            </div>
+            <div class="col-6">
+                <h4 class="text-info">${redisStats.token_bucket_keys || 0}</h4>
+                <small>Token Bucket</small>
+            </div>
+        </div>
+        <hr>
+        <div class="row text-center">
+            <div class="col-6">
+                <h5 class="text-danger">${redisStats.blacklist_keys || 0}</h5>
+                <small>Blacklisted</small>
+            </div>
+            <div class="col-6">
+                <h5 class="text-success">${redisStats.whitelist_keys || 0}</h5>
+                <small>Whitelisted</small>
+            </div>
+        </div>
+    `;
+    
+    $('#strategy-stats').html(html);
+}
+
+function updateClientConfigs(clientConfigs, tierConfigs) {
+    let html = '<div class="table-responsive"><table class="table table-sm">';
+    html += '<thead><tr><th>Tipo de Cliente</th><th>Tier</th><th>Req/Min</th></tr></thead><tbody>';
+    
+    for (const [clientType, tier] of Object.entries(clientConfigs)) {
+        const tierConfig = tierConfigs[tier];
+        const reqPerMin = tierConfig?.requests_per_minute || '-';
+        
+        html += `
+            <tr>
+                <td><span class="badge badge-secondary">${clientType}</span></td>
+                <td><span class="badge badge-info">${tier}</span></td>
+                <td><strong>${reqPerMin}</strong></td>
+            </tr>
+        `;
+    }
+    
+    html += '</tbody></table></div>';
+    $('#client-configs').html(html);
+}
+
+function loadClients() {
+    const filter = $('#client-filter').val() || '*';
+    
+    $('#clients-container').html(`
+        <div class="text-center">
+            <div class="spinner-border text-warning" role="status">
+                <span class="sr-only">Carregando...</span>
+            </div>
+            <p>Carregando clientes...</p>
+        </div>
+    `);
+    
+    $.get('/api/admin/rate-limits/clients', { pattern: filter, limit: 100 })
+        .done(function(data) {
+            if (data.success) {
+                displayClients(data.clients, data.total_found);
+            } else {
+                $('#clients-container').html('<p class="text-danger">Erro carregando clientes</p>');
+            }
+        })
+        .fail(function() {
+            $('#clients-container').html('<p class="text-danger">Erro na conexão</p>');
+        });
+}
+
+function displayClients(clients, total) {
+    if (clients.length === 0) {
+        $('#clients-container').html(`
+            <div class="text-center text-muted">
+                <i class="fas fa-network-wired fa-3x mb-3"></i>
+                <p>Nenhum cliente ativo encontrado</p>
+            </div>
+        `);
+        return;
+    }
+    
+    let html = `
+        <div class="mb-3">
+            <strong>${total.toLocaleString()} clientes encontrados</strong>
+            ${total > clients.length ? ` (mostrando primeiros ${clients.length})` : ''}
+        </div>
+    `;
+    
+    clients.forEach(function(client) {
+        const activityClass = getActivityClass(client.last_activity);
+        const lastActivity = client.last_activity ? 
+            new Date(client.last_activity * 1000).toLocaleString() : 
+            'Nunca';
+        
+        html += `
+            <div class="client-card p-3">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="activity-indicator ${activityClass}"></span>
+                            <code class="client-id">${client.client_id}</code>
+                            <span class="badge badge-light ml-2">${client.total_requests} requests</span>
+                        </div>
+                        <small class="text-muted">Última atividade: ${lastActivity}</small>
+                        
+                        <div class="mt-2">
+        `;
+        
+        // Mostrar endpoints
+        for (const [endpoint, info] of Object.entries(client.endpoints)) {
+            const strategyColor = info.type === 'sliding_window' ? 'primary' : 'info';
+            html += `
+                <span class="endpoint-badge">
+                    <strong>${endpoint}</strong>
+                    <span class="badge badge-${strategyColor} ml-1">${info.type}</span>
+                    ${info.current_count ? `<span class="text-muted ml-1">(${info.current_count})</span>` : ''}
+                </span>
+            `;
+        }
+        
+        html += `
+                        </div>
+                    </div>
+                    <div class="btn-group-vertical btn-group-sm">
+                        <button class="btn btn-outline-primary btn-sm" onclick="resetClient('${client.client_id}')" title="Reset Limits">
+                            <i class="fas fa-redo"></i>
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="blacklistClient('${client.client_id}')" title="Blacklist">
+                            <i class="fas fa-ban"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    $('#clients-container').html(html);
+}
+
+function getActivityClass(lastActivity) {
+    if (!lastActivity) return 'activity-none';
+    
+    const now = Date.now() / 1000;
+    const diff = now - lastActivity;
+    
+    if (diff < 60) return 'activity-high';      // < 1 min
+    if (diff < 300) return 'activity-medium';   // < 5 min
+    if (diff < 1800) return 'activity-low';     // < 30 min
+    return 'activity-none';
+}
+
+function addToBlacklist() {
+    const clientId = $('#blacklist-client').val().trim();
+    const duration = parseInt($('#blacklist-duration').val()) || 3600;
+    
+    if (!clientId) {
+        showAlert('error', 'Client ID é obrigatório');
+        return;
+    }
+    
+    showAction('Adicionando à Blacklist...', 'Bloqueando cliente...');
+    
+    $.ajax({
+        url: '/api/admin/rate-limits/blacklist',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            client_id: clientId,
+            duration: duration,
+            reason: 'Blocked by admin via interface'
+        })
+    })
+    .done(function(data) {
+        hideAction();
+        if (data.success) {
+            showAlert('success', data.message);
+            $('#blacklist-client').val('');
+            refreshData();
+        } else {
+            showAlert('error', data.error || 'Erro adicionando à blacklist');
+        }
+    })
+    .fail(function() {
+        hideAction();
+        showAlert('error', 'Erro na conexão');
+    });
+}
+
+function addToWhitelist() {
+    const clientId = $('#whitelist-client').val().trim();
+    
+    if (!clientId) {
+        showAlert('error', 'Client ID é obrigatório');
+        return;
+    }
+    
+    showAction('Adicionando à Whitelist...', 'Liberando cliente...');
+    
+    $.ajax({
+        url: '/api/admin/rate-limits/whitelist',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            client_id: clientId,
+            reason: 'Whitelisted by admin via interface'
+        })
+    })
+    .done(function(data) {
+        hideAction();
+        if (data.success) {
+            showAlert('success', data.message);
+            $('#whitelist-client').val('');
+            refreshData();
+        } else {
+            showAlert('error', data.error || 'Erro adicionando à whitelist');
+        }
+    })
+    .fail(function() {
+        hideAction();
+        showAlert('error', 'Erro na conexão');
+    });
+}
+
+function resetClient(clientId) {
+    if (!confirm(`Resetar limites para ${clientId}?`)) {
+        return;
+    }
+    
+    showAction('Resetando Limites...', `Resetando ${clientId}...`);
+    
+    $.post(`/api/admin/rate-limits/reset/${encodeURIComponent(clientId)}`)
+        .done(function(data) {
+            hideAction();
+            if (data.success) {
+                showAlert('success', data.message);
+                refreshData();
+            } else {
+                showAlert('error', data.error || 'Erro resetando limites');
+            }
+        })
+        .fail(function() {
+            hideAction();
+            showAlert('error', 'Erro na conexão');
+        });
+}
+
+function blacklistClient(clientId) {
+    $('#blacklist-client').val(clientId);
+    $('html, body').animate({
+        scrollTop: 0
+    }, 500);
+    $('#blacklist-client').focus();
+}
+
+function toggleAdaptiveMode() {
+    const enabled = $('#adaptive-mode').is(':checked');
+    
+    showAction('Atualizando Configuração...', 'Alterando modo adaptativo...');
+    
+    $.ajax({
+        url: '/api/admin/rate-limits/config',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            enable_adaptive: enabled
+        })
+    })
+    .done(function(data) {
+        hideAction();
+        if (data.success) {
+            showAlert('success', `Modo adaptativo ${enabled ? 'ativado' : 'desativado'}`);
+        } else {
+            showAlert('error', data.error || 'Erro atualizando configuração');
+            $('#adaptive-mode').prop('checked', !enabled); // Reverter
+        }
+    })
+    .fail(function() {
+        hideAction();
+        showAlert('error', 'Erro na conexão');
+        $('#adaptive-mode').prop('checked', !enabled); // Reverter
+    });
+}
+
+function showAction(title, message) {
+    $('#action-title').text(title);
+    $('#action-message').text(message);
+    $('#actionModal').modal('show');
+}
+
+function hideAction() {
+    $('#actionModal').modal('hide');
+}
+
+function showAlert(type, message) {
+    const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+    const icon = type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-triangle';
+    
+    const alert = $(`
+        <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+            <i class="${icon}"></i> ${message}
+            <button type="button" class="close" data-dismiss="alert">
+                <span>&times;</span>
+            </button>
+        </div>
+    `);
+    
+    $('body').prepend(alert);
+    
+    setTimeout(function() {
+        alert.alert('close');
+    }, 5000);
+}
+
+// Permitir busca com Enter
+$('#client-filter').keypress(function(e) {
+    if (e.which === 13) {
+        loadClients();
+    }
+});
+</script>
+{% endblock %}

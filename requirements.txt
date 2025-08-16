@@ -1,27 +1,51 @@
+# MediaDown - Sistema de Download de Vídeos M3U
+# Dependências Python - Versões fixas para estabilidade
+
+# Flask e extensões
 Flask==3.0.0
 Flask-SQLAlchemy==3.1.1
 Flask-Migrate==4.0.5
 Flask-Login==0.6.3
 Flask-WTF==1.2.1
 WTForms==3.1.1
+Werkzeug==3.0.1
+
+# Banco de dados e cache
 psycopg2-binary==2.9.9
 redis==5.0.1
+
+# Tasks e workers
 celery==5.3.4
+
+# Segurança
 bcrypt==4.1.2
 PyJWT==2.8.0
-python-dotenv==1.0.0
-requests==2.31.0
-aiohttp==3.12.14
-aiofiles==24.1.0
-tmdbv3api==1.9.0
+cryptography==41.0.7
+
+# Download e mídia
 yt-dlp==2025.7.21
-gunicorn==21.2.0
+tmdbv3api==1.9.0
+Pillow==10.1.0
+python-magic==0.4.27
+
+# Transferência de arquivos
 paramiko==3.4.0
 pysmb==1.2.9
 python-nmap==0.7.1
-cryptography==41.0.7
-Pillow==10.1.0
-python-magic==0.4.27
-watchdog==3.0.0
-schedule==1.2.0
 
+# Utilitários
+requests==2.31.0
+aiohttp==3.12.14
+aiofiles==24.1.0
+python-dotenv==1.0.0
+click==8.1.7
+schedule==1.2.0
+watchdog==3.0.0
+
+# Monitoramento e backup
+psutil==5.9.6
+boto3==1.34.34
+botocore==1.34.34
+
+# Servidor web
+gunicorn==21.2.0

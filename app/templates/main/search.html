@@ -1,0 +1,654 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Pesquisar - MediaDown{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-1">
+                        <i class="bi bi-search me-2"></i>
+                        Pesquisar Conteúdo
+                    </h1>
+                    <p class="text-muted mb-0">Encontre qualquer conteúdo na sua biblioteca</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('main.library') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-collection me-1"></i>
+                        Ver Biblioteca
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Advanced Search Form -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-funnel me-2"></i>
+                        Pesquisa Avançada
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="GET" id="search-form">
+                        <div class="row g-3">
+                            <!-- Main Search -->
+                            <div class="col-md-6">
+                                <label for="search-query" class="form-label fw-semibold">
+                                    <i class="bi bi-search me-1"></i>
+                                    Termo de Pesquisa
+                                </label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control form-control-lg" id="search-query" 
+                                           name="q" value="{{ query }}" placeholder="Digite o título, ator, diretor..."
+                                           autofocus>
+                                    <button class="btn btn-primary" type="submit">
+                                        <i class="bi bi-search"></i>
+                                    </button>
+                                </div>
+                                <div class="form-text">
+                                    Dica: Use aspas para pesquisas exatas: "Nome do Filme"
+                                </div>
+                            </div>
+                            
+                            <!-- Content Type -->
+                            <div class="col-md-2">
+                                <label for="content-type" class="form-label fw-semibold">Tipo</label>
+                                <select class="form-select" id="content-type" name="type">
+                                    <option value="">Todos</option>
+                                    <option value="movie" {{ 'selected' if content_type == 'movie' }}>Filmes</option>
+                                    <option value="series" {{ 'selected' if content_type == 'series' }}>Séries</option>
+                                    <option value="novela" {{ 'selected' if content_type == 'novela' }}>Novelas</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Quality -->
+                            <div class="col-md-2">
+                                <label for="quality" class="form-label fw-semibold">Qualidade</label>
+                                <select class="form-select" id="quality" name="quality">
+                                    <option value="">Todas</option>
+                                    <option value="480p" {{ 'selected' if request.args.get('quality') == '480p' }}>480p</option>
+                                    <option value="720p" {{ 'selected' if request.args.get('quality') == '720p' }}>720p</option>
+                                    <option value="1080p" {{ 'selected' if request.args.get('quality') == '1080p' }}>1080p</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Server -->
+                            <div class="col-md-2">
+                                <label for="server" class="form-label fw-semibold">Servidor</label>
+                                <select class="form-select" id="server" name="server">
+                                    <option value="">Todos</option>
+                                    {% for server in servers %}
+                                        <option value="{{ server.id }}" {{ 'selected' if server_id == server.id|string }}>
+                                            {{ server.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Advanced Filters (Collapsible) -->
+                        <div class="mt-3">
+                            <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" 
+                                    data-bs-target="#advanced-filters" aria-expanded="false">
+                                <i class="bi bi-chevron-down me-1"></i>
+                                Filtros Avançados
+                            </button>
+                        </div>
+                        
+                        <div class="collapse mt-3" id="advanced-filters">
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <label for="year-from" class="form-label">Ano (de)</label>
+                                    <input type="number" class="form-control" id="year-from" name="year_from" 
+                                           min="1900" max="2030" value="{{ request.args.get('year_from') }}" 
+                                           placeholder="1990">
+                                </div>
+                                
+                                <div class="col-md-3">
+                                    <label for="year-to" class="form-label">Ano (até)</label>
+                                    <input type="number" class="form-control" id="year-to" name="year_to" 
+                                           min="1900" max="2030" value="{{ request.args.get('year_to') }}" 
+                                           placeholder="2024">
+                                </div>
+                                
+                                <div class="col-md-3">
+                                    <label for="genre" class="form-label">Gênero</label>
+                                    <input type="text" class="form-control" id="genre" name="genre" 
+                                           value="{{ request.args.get('genre') }}" placeholder="Ex: Ação, Drama">
+                                </div>
+                                
+                                <div class="col-md-3">
+                                    <label for="sort" class="form-label">Ordenar por</label>
+                                    <select class="form-select" id="sort" name="sort">
+                                        <option value="newest" {{ 'selected' if request.args.get('sort') == 'newest' }}>Mais Recentes</option>
+                                        <option value="oldest" {{ 'selected' if request.args.get('sort') == 'oldest' }}>Mais Antigos</option>
+                                        <option value="title" {{ 'selected' if request.args.get('sort') == 'title' }}>Título A-Z</option>
+                                        <option value="title_desc" {{ 'selected' if request.args.get('sort') == 'title_desc' }}>Título Z-A</option>
+                                        <option value="year" {{ 'selected' if request.args.get('sort') == 'year' }}>Ano</option>
+                                        <option value="size" {{ 'selected' if request.args.get('sort') == 'size' }}>Tamanho</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="has-poster" name="has_poster" 
+                                               {{ 'checked' if request.args.get('has_poster') }}>
+                                        <label class="form-check-label" for="has-poster">
+                                            Apenas com poster/imagem
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="has-tmdb" name="has_tmdb" 
+                                               {{ 'checked' if request.args.get('has_tmdb') }}>
+                                        <label class="form-check-label" for="has-tmdb">
+                                            Apenas com dados TMDB
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Form Actions -->
+                        <div class="mt-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-search me-1"></i>
+                                        Pesquisar
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="clearSearch()">
+                                        <i class="bi bi-x me-1"></i>
+                                        Limpar
+                                    </button>
+                                </div>
+                                
+                                <div>
+                                    <button type="button" class="btn btn-outline-info" onclick="saveSearch()">
+                                        <i class="bi bi-bookmark me-1"></i>
+                                        Salvar Pesquisa
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Search Suggestions -->
+    {% if not query %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h6 class="card-title mb-3">
+                        <i class="bi bi-lightning me-2"></i>
+                        Pesquisas Rápidas
+                    </h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="d-flex flex-wrap gap-2 mb-3">
+                                <span class="badge bg-primary p-2 cursor-pointer" onclick="quickSearch('', 'movie')">
+                                    <i class="bi bi-film me-1"></i>Todos os Filmes
+                                </span>
+                                <span class="badge bg-success p-2 cursor-pointer" onclick="quickSearch('', 'series')">
+                                    <i class="bi bi-tv me-1"></i>Todas as Séries
+                                </span>
+                                <span class="badge bg-info p-2 cursor-pointer" onclick="quickSearch('', 'novela')">
+                                    <i class="bi bi-broadcast me-1"></i>Todas as Novelas
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex flex-wrap gap-2">
+                                <span class="badge bg-secondary p-2 cursor-pointer" onclick="quickSearch('Marvel')">
+                                    Marvel
+                                </span>
+                                <span class="badge bg-secondary p-2 cursor-pointer" onclick="quickSearch('Netflix')">
+                                    Netflix
+                                </span>
+                                <span class="badge bg-secondary p-2 cursor-pointer" onclick="quickSearch('2024')">
+                                    Lançamentos 2024
+                                </span>
+                                <span class="badge bg-secondary p-2 cursor-pointer" onclick="quickSearch('', '', '1080p')">
+                                    HD (1080p)
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Search Results -->
+    {% if query or content_type or server_id %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5>
+                    <i class="bi bi-search me-2"></i>
+                    Resultados da Pesquisa
+                    {% if results %}
+                        <span class="badge bg-primary">{{ results | length }} encontrado(s)</span>
+                    {% endif %}
+                </h5>
+                
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="view-mode" id="grid-view" checked>
+                    <label class="btn btn-outline-primary" for="grid-view">
+                        <i class="bi bi-grid-3x3-gap"></i>
+                    </label>
+                    
+                    <input type="radio" class="btn-check" name="view-mode" id="list-view">
+                    <label class="btn btn-outline-primary" for="list-view">
+                        <i class="bi bi-list-ul"></i>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Results Display -->
+    <div class="row">
+        <div class="col-12">
+            {% if results %}
+                <!-- Grid View -->
+                <div class="results-grid" id="grid-results">
+                    <div class="row g-3">
+                        {% for result in results %}
+                        <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
+                            <div class="content-card">
+                                <div class="content-poster">
+                                    {% if result.tmdb_poster %}
+                                        <img src="https://image.tmdb.org/t/p/w300{{ result.tmdb_poster }}" 
+                                             class="img-fluid rounded" 
+                                             alt="{{ result.title }}"
+                                             loading="lazy">
+                                    {% else %}
+                                        <div class="content-placeholder">
+                                            {% if result.content_type == 'movie' %}
+                                                <i class="bi bi-film display-1"></i>
+                                            {% elif result.content_type == 'series' %}
+                                                <i class="bi bi-tv display-1"></i>
+                                            {% else %}
+                                                <i class="bi bi-broadcast display-1"></i>
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
+                                    
+                                    <!-- Overlay -->
+                                    <div class="content-overlay">
+                                        <div class="content-actions">
+                                            <button class="btn btn-sm btn-primary" onclick="viewDetails({{ result.id }})">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-light" onclick="copyPath('{{ result.destination_path }}')">
+                                                <i class="bi bi-clipboard"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="content-info">
+                                    <h6 class="content-title" title="{{ result.title }}">
+                                        {{ result.title | truncate(25) }}
+                                    </h6>
+                                    <div class="content-meta">
+                                        <span class="badge bg-{{ 'primary' if result.content_type == 'movie' else 'success' if result.content_type == 'series' else 'info' }}">
+                                            {{ result.content_type.title() }}
+                                        </span>
+                                        <span class="badge bg-secondary">{{ result.quality }}</span>
+                                        {% if result.year %}
+                                            <span class="badge bg-dark">{{ result.year }}</span>
+                                        {% endif %}
+                                    </div>
+                                    {% if result.season and result.episode %}
+                                    <small class="text-muted d-block">
+                                        S{{ result.season }}E{{ result.episode }}
+                                    </small>
+                                    {% endif %}
+                                    <small class="text-muted">
+                                        {{ result.server.name if result.server else 'N/A' }}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <!-- List View -->
+                <div class="results-list d-none" id="list-results">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Título</th>
+                                    <th>Tipo</th>
+                                    <th>Qualidade</th>
+                                    <th>Ano</th>
+                                    <th>Servidor</th>
+                                    <th>Tamanho</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for result in results %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if result.tmdb_poster %}
+                                                <img src="https://image.tmdb.org/t/p/w92{{ result.tmdb_poster }}" 
+                                                     class="rounded me-3" 
+                                                     style="width: 40px; height: 60px; object-fit: cover;"
+                                                     alt="{{ result.title }}">
+                                            {% else %}
+                                                <div class="bg-light rounded me-3 d-flex align-items-center justify-content-center" 
+                                                     style="width: 40px; height: 60px;">
+                                                    {% if result.content_type == 'movie' %}
+                                                        <i class="bi bi-film"></i>
+                                                    {% elif result.content_type == 'series' %}
+                                                        <i class="bi bi-tv"></i>
+                                                    {% else %}
+                                                        <i class="bi bi-broadcast"></i>
+                                                    {% endif %}
+                                                </div>
+                                            {% endif %}
+                                            <div>
+                                                <strong>{{ result.title }}</strong>
+                                                {% if result.season and result.episode %}
+                                                    <br>
+                                                    <small class="text-muted">
+                                                        Temporada {{ result.season }}, Episódio {{ result.episode }}
+                                                    </small>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ 'primary' if result.content_type == 'movie' else 'success' if result.content_type == 'series' else 'info' }}">
+                                            {{ result.content_type.title() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ result.quality }}</span>
+                                    </td>
+                                    <td>{{ result.year or '-' }}</td>
+                                    <td>{{ result.server.name if result.server else 'N/A' }}</td>
+                                    <td>
+                                        {% if result.file_size %}
+                                            {{ (result.file_size / 1024 / 1024) | round(1) }} MB
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-primary" onclick="viewDetails({{ result.id }})" title="Detalhes">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            <button class="btn btn-outline-secondary" onclick="copyPath('{{ result.destination_path }}')" title="Copiar Caminho">
+                                                <i class="bi bi-clipboard"></i>
+                                            </button>
+                                            {% if result.tmdb_id %}
+                                            <a href="https://www.themoviedb.org/{{ 'movie' if result.content_type == 'movie' else 'tv' }}/{{ result.tmdb_id }}" 
+                                               target="_blank" class="btn btn-outline-info" title="Ver no TMDB">
+                                                <i class="bi bi-box-arrow-up-right"></i>
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            {% else %}
+                <!-- No Results -->
+                <div class="text-center py-5">
+                    <i class="bi bi-search display-1 text-muted"></i>
+                    <h5 class="text-muted mt-3">
+                        {% if query %}
+                            Nenhum resultado encontrado
+                        {% else %}
+                            Digite um termo para pesquisar
+                        {% endif %}
+                    </h5>
+                    <p class="text-muted">
+                        {% if query %}
+                            Tente usar termos diferentes ou filtros menos específicos
+                        {% else %}
+                            Use o campo de pesquisa acima para encontrar conteúdo na biblioteca
+                        {% endif %}
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .content-card {
+        position: relative;
+        border-radius: 0.5rem;
+        overflow: hidden;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        background: white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .content-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .content-poster {
+        position: relative;
+        aspect-ratio: 2/3;
+        overflow: hidden;
+    }
+    
+    .content-poster img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .content-placeholder {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6c757d;
+    }
+    
+    .content-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .content-card:hover .content-overlay {
+        opacity: 1;
+    }
+    
+    .content-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .content-info {
+        padding: 1rem;
+    }
+    
+    .content-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        line-height: 1.3;
+    }
+    
+    .content-meta {
+        margin-bottom: 0.5rem;
+    }
+    
+    .content-meta .badge {
+        font-size: 0.7rem;
+        margin-right: 0.25rem;
+    }
+    
+    .cursor-pointer {
+        cursor: pointer;
+    }
+    
+    .cursor-pointer:hover {
+        transform: scale(1.05);
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // View mode toggle
+    document.addEventListener('DOMContentLoaded', function() {
+        const gridViewBtn = document.getElementById('grid-view');
+        const listViewBtn = document.getElementById('list-view');
+        
+        if (gridViewBtn && listViewBtn) {
+            gridViewBtn.addEventListener('change', function() {
+                if (this.checked) {
+                    switchViewMode('grid');
+                }
+            });
+            
+            listViewBtn.addEventListener('change', function() {
+                if (this.checked) {
+                    switchViewMode('list');
+                }
+            });
+        }
+    });
+    
+    function switchViewMode(mode) {
+        const gridResults = document.getElementById('grid-results');
+        const listResults = document.getElementById('list-results');
+        
+        if (mode === 'grid') {
+            gridResults?.classList.remove('d-none');
+            listResults?.classList.add('d-none');
+        } else {
+            gridResults?.classList.add('d-none');
+            listResults?.classList.remove('d-none');
+        }
+    }
+    
+    function quickSearch(query, type, quality) {
+        const form = document.getElementById('search-form');
+        const queryInput = document.getElementById('search-query');
+        const typeSelect = document.getElementById('content-type');
+        const qualitySelect = document.getElementById('quality');
+        
+        if (query) queryInput.value = query;
+        if (type) typeSelect.value = type;
+        if (quality) qualitySelect.value = quality;
+        
+        form.submit();
+    }
+    
+    function clearSearch() {
+        document.getElementById('search-form').reset();
+        window.location.href = window.location.pathname;
+    }
+    
+    function saveSearch() {
+        const query = document.getElementById('search-query').value;
+        if (!query) {
+            alert('Digite um termo de pesquisa para salvar');
+            return;
+        }
+        
+        const searchName = prompt('Nome para esta pesquisa:', query);
+        if (searchName) {
+            // Implementation for saving search
+            localStorage.setItem('saved_search_' + Date.now(), JSON.stringify({
+                name: searchName,
+                url: window.location.href,
+                date: new Date().toISOString()
+            }));
+            alert('Pesquisa salva!');
+        }
+    }
+    
+    function viewDetails(downloadId) {
+        window.location.href = `/downloads/${downloadId}`;
+    }
+    
+    function copyPath(path) {
+        navigator.clipboard.writeText(path).then(() => {
+            showToast('Caminho copiado para a área de transferência!', 'success');
+        }).catch(err => {
+            console.error('Error copying path:', err);
+            showToast('Erro ao copiar caminho', 'error');
+        });
+    }
+    
+    function showToast(message, type) {
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+        const alertHtml = `
+            <div class="alert ${alertClass} alert-dismissible fade show position-fixed" 
+                 style="top: 20px; right: 20px; z-index: 9999;">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', alertHtml);
+        
+        setTimeout(() => {
+            const alert = document.querySelector('.alert');
+            if (alert) {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            }
+        }, 3000);
+    }
+    
+    // Auto-complete functionality
+    document.getElementById('search-query').addEventListener('input', function() {
+        const query = this.value;
+        if (query.length > 2) {
+            // Implementation for auto-complete suggestions
+            // This would call an API endpoint for suggestions
+        }
+    });
+</script>
+{% endblock %}

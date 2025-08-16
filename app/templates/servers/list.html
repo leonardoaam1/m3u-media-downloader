@@ -1,0 +1,424 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Gerenciar Servidores - MediaDown{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-1">
+                        <i class="bi bi-hdd-network me-2"></i>
+                        Gerenciar Servidores
+                    </h1>
+                    <p class="text-muted mb-0">Configure e monitore servidores de destino</p>
+                </div>
+                <div>
+                    {% if current_user.has_permission('manage_servers') %}
+                    <button class="btn btn-outline-primary me-2" onclick="testAllServers()">
+                        <i class="bi bi-wifi me-1"></i>
+                        Testar Todos
+                    </button>
+                    <a href="{{ url_for('servers.new_server') }}" class="btn btn-primary">
+                        <i class="bi bi-plus-lg me-1"></i>
+                        Adicionar Servidor
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Total de Servidores</h6>
+                            <h2 class="card-title mb-0">{{ total_servers }}</h2>
+                        </div>
+                        <div class="opacity-75">
+                            <i class="bi bi-hdd-stack display-6"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Online</h6>
+                            <h2 class="card-title mb-0" id="online-count">{{ online_servers }}</h2>
+                        </div>
+                        <div class="opacity-75">
+                            <i class="bi bi-wifi display-6"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Offline</h6>
+                            <h2 class="card-title mb-0" id="offline-count">{{ total_servers - online_servers }}</h2>
+                        </div>
+                        <div class="opacity-75">
+                            <i class="bi bi-wifi-off display-6"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Espaço Total</h6>
+                            <h2 class="card-title mb-0">{{ "%.1f"|format(total_space) }} GB</h2>
+                        </div>
+                        <div class="opacity-75">
+                            <i class="bi bi-hdd display-6"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="opacity-75">
+                            {{ "%.1f"|format(used_space) }} GB usados ({{ "%.1f"|format((used_space/total_space*100) if total_space > 0 else 0) }}%)
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Servers List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Lista de Servidores</h5>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="refreshServers()">
+                            <i class="bi bi-arrow-clockwise me-1"></i>
+                            Atualizar
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    {% if servers %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Protocolo</th>
+                                        <th>Host</th>
+                                        <th>Status</th>
+                                        <th>Espaço em Disco</th>
+                                        <th>Tipos de Conteúdo</th>
+                                        <th>Última Verificação</th>
+                                        <th width="150">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for server in servers %}
+                                    <tr data-server-id="{{ server.id }}">
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="me-3">
+                                                    <i class="bi bi-server fs-4 text-{{ 'success' if server.status.value == 'online' else 'danger' if server.status.value == 'offline' else 'warning' }}"></i>
+                                                </div>
+                                                <div>
+                                                    <strong>{{ server.name }}</strong>
+                                                    {% if server.description %}
+                                                        <br>
+                                                        <small class="text-muted">{{ server.description }}</small>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ server.protocol.value.upper() }}</span>
+                                            <br>
+                                            <small class="text-muted">Porta {{ server.port }}</small>
+                                        </td>
+                                        <td>
+                                            <div>
+                                                <code>{{ server.host }}</code>
+                                                <br>
+                                                <small class="text-muted">{{ server.base_path }}</small>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="status-badge status-{{ server.status.value }}" id="status-{{ server.id }}">
+                                                {{ server.status.value.title() }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% set disk_usage = server.disk_usage_dict %}
+                                            {% if disk_usage and 'total' in disk_usage %}
+                                                <div class="progress mb-1" style="height: 15px;">
+                                                    <div class="progress-bar bg-{{ 'danger' if disk_usage.percentage > 90 else 'warning' if disk_usage.percentage > 75 else 'success' }}" 
+                                                         style="width: {{ disk_usage.percentage }}%"
+                                                         id="disk-usage-{{ server.id }}">
+                                                        {{ disk_usage.percentage }}%
+                                                    </div>
+                                                </div>
+                                                <small class="text-muted">{{ disk_usage.used }} / {{ disk_usage.total }}</small>
+                                            {% else %}
+                                                <span class="text-muted">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% for content_type in server.content_types_list %}
+                                                <span class="badge bg-outline-primary me-1">
+                                                    {% if content_type == 'movie' %}
+                                                        <i class="bi bi-film me-1"></i>Filmes
+                                                    {% elif content_type == 'series' %}
+                                                        <i class="bi bi-tv me-1"></i>Séries
+                                                    {% elif content_type == 'novela' %}
+                                                        <i class="bi bi-broadcast me-1"></i>Novelas
+                                                    {% endif %}
+                                                </span>
+                                            {% endfor %}
+                                        </td>
+                                        <td>
+                                            {% if server.last_check %}
+                                                <small class="text-muted">{{ server.last_check.strftime('%d/%m/%Y %H:%M') }}</small>
+                                            {% else %}
+                                                <small class="text-muted">Nunca</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-outline-primary" onclick="testServer({{ server.id }})" title="Testar Conexão">
+                                                    <i class="bi bi-wifi"></i>
+                                                </button>
+                                                
+                                                <a href="{{ url_for('servers.server_detail', server_id=server.id) }}" class="btn btn-outline-info" title="Detalhes">
+                                                    <i class="bi bi-eye"></i>
+                                                </a>
+                                                
+                                                {% if current_user.has_permission('manage_servers') %}
+                                                <a href="{{ url_for('servers.edit_server', server_id=server.id) }}" class="btn btn-outline-warning" title="Editar">
+                                                    <i class="bi bi-pencil"></i>
+                                                </a>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-hdd-network display-1 text-muted"></i>
+                            <h5 class="text-muted mt-3">Nenhum servidor configurado</h5>
+                            <p class="text-muted">Configure servidores de destino para começar a transferir arquivos</p>
+                            {% if current_user.has_permission('manage_servers') %}
+                            <a href="{{ url_for('servers.new_server') }}" class="btn btn-primary">
+                                <i class="bi bi-plus-lg me-2"></i>
+                                Adicionar Primeiro Servidor
+                            </a>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Server Configuration Guide -->
+    {% if current_user.has_permission('manage_servers') %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Guia de Configuração
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="bi bi-film me-2"></i>Servidor de Filmes</h6>
+                            <p class="text-muted small">
+                                Configure um servidor dedicado para filmes com estrutura de diretórios por gênero:
+                                Ação, Comédia, Drama, Terror, etc.
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="bi bi-tv me-2"></i>Servidor de Séries</h6>
+                            <p class="text-muted small">
+                                Configure um servidor para séries organizadas por plataforma:
+                                Netflix, Amazon Prime, Disney+, etc.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="bi bi-broadcast me-2"></i>Servidor de Novelas</h6>
+                            <p class="text-muted small">
+                                Configure um servidor para novelas com estrutura simples:
+                                /mnt/Novelas/{Nome_da_Novela}/
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="bi bi-shield-check me-2"></i>Protocolos Suportados</h6>
+                            <p class="text-muted small">
+                                SFTP (seguro), NFS (performance), SMB (Windows), RSYNC (sincronização)
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function testServer(serverId) {
+        const button = event.target.closest('button');
+        const originalContent = button.innerHTML;
+        
+        button.disabled = true;
+        button.innerHTML = '<div class="loading-spinner"></div>';
+        
+        fetch(`/api/servers/${serverId}/test`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update status
+                    const statusElement = document.getElementById(`status-${serverId}`);
+                    statusElement.textContent = data.status;
+                    statusElement.className = `status-badge status-${data.status}`;
+                    
+                    // Show result
+                    showToast(data.message, data.connected ? 'success' : 'warning');
+                    
+                    // Update server icon
+                    const serverIcon = document.querySelector(`tr[data-server-id="${serverId}"] .bi-server`);
+                    serverIcon.className = `bi bi-server fs-4 text-${data.connected ? 'success' : 'danger'}`;
+                } else {
+                    showToast('Erro: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error testing server:', error);
+                showToast('Erro ao testar conexão', 'error');
+            })
+            .finally(() => {
+                button.disabled = false;
+                button.innerHTML = originalContent;
+            });
+    }
+    
+    function testAllServers() {
+        const button = event.target.closest('button');
+        const originalContent = button.innerHTML;
+        
+        button.disabled = true;
+        button.innerHTML = '<div class="loading-spinner me-1"></div>Testando...';
+        
+        fetch('/api/servers/test_all')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update all server statuses
+                    data.results.forEach(result => {
+                        const statusElement = document.getElementById(`status-${result.id}`);
+                        const serverIcon = document.querySelector(`tr[data-server-id="${result.id}"] .bi-server`);
+                        
+                        if (statusElement) {
+                            statusElement.textContent = result.status;
+                            statusElement.className = `status-badge status-${result.status}`;
+                        }
+                        
+                        if (serverIcon) {
+                            serverIcon.className = `bi bi-server fs-4 text-${result.connected ? 'success' : 'danger'}`;
+                        }
+                    });
+                    
+                    // Update counters
+                    document.getElementById('online-count').textContent = data.summary.online;
+                    document.getElementById('offline-count').textContent = data.summary.offline;
+                    
+                    showToast(`Teste concluído: ${data.summary.online}/${data.summary.total} servidores online`, 'success');
+                } else {
+                    showToast('Erro: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error testing servers:', error);
+                showToast('Erro ao testar servidores', 'error');
+            })
+            .finally(() => {
+                button.disabled = false;
+                button.innerHTML = originalContent;
+            });
+    }
+    
+    function refreshServers() {
+        // Reload page to refresh server data
+        window.location.reload();
+    }
+    
+    function showToast(message, type) {
+        const alertClass = type === 'success' ? 'alert-success' : 
+                          type === 'warning' ? 'alert-warning' : 'alert-danger';
+        const alertHtml = `
+            <div class="alert ${alertClass} alert-dismissible fade show position-fixed" 
+                 style="top: 20px; right: 20px; z-index: 9999;">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', alertHtml);
+        
+        // Auto-hide after 3 seconds
+        setTimeout(() => {
+            const alert = document.querySelector('.alert');
+            if (alert) {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            }
+        }, 3000);
+    }
+    
+    // Auto-refresh server status every 2 minutes
+    setInterval(() => {
+        fetch('/api/servers/status')
+            .then(response => response.json())
+            .then(data => {
+                // Update server statuses without full page reload
+                data.forEach(server => {
+                    const statusElement = document.getElementById(`status-${server.id}`);
+                    if (statusElement) {
+                        statusElement.textContent = server.status;
+                        statusElement.className = `status-badge status-${server.status}`;
+                    }
+                });
+            })
+            .catch(error => console.error('Error auto-refreshing:', error));
+    }, 120000); // 2 minutes
+</script>
+{% endblock %}

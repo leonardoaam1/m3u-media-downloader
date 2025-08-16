@@ -1,0 +1,643 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Painel Administrativo - MediaDown{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-1">
+                        <i class="bi bi-gear me-2"></i>
+                        Painel Administrativo
+                    </h1>
+                    <p class="text-muted mb-0">Configurações avançadas e gerenciamento do sistema</p>
+                </div>
+                <div>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-danger" onclick="cleanupLogs()">
+                            <i class="bi bi-trash me-1"></i>
+                            Limpar Logs Antigos
+                        </button>
+                        <button class="btn btn-outline-warning" onclick="restartSystem()">
+                            <i class="bi bi-arrow-clockwise me-1"></i>
+                            Reiniciar Workers
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- System Overview -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Total de Usuários</h6>
+                            <h2 class="card-title mb-0">{{ users | length }}</h2>
+                        </div>
+                        <div class="opacity-75">
+                            <i class="bi bi-people display-6"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="opacity-75">
+                            {{ users | selectattr('is_active') | list | length }} ativos
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Total de Downloads</h6>
+                            <h2 class="card-title mb-0">{{ downloads | length }}</h2>
+                        </div>
+                        <div class="opacity-75">
+                            <i class="bi bi-download display-6"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="opacity-75">
+                            {{ downloads | selectattr('status.value', 'equalto', 'completed') | list | length }} completados
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Servidores</h6>
+                            <h2 class="card-title mb-0">{{ servers | length }}</h2>
+                        </div>
+                        <div class="opacity-75">
+                            <i class="bi bi-hdd-network display-6"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="opacity-75">
+                            {{ servers | selectattr('status.value', 'equalto', 'online') | list | length }} online
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Uso do Sistema</h6>
+                            <h2 class="card-title mb-0" id="system-load">-</h2>
+                        </div>
+                        <div class="opacity-75">
+                            <i class="bi bi-cpu display-6"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="opacity-75">
+                            CPU e memória
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-lightning me-2"></i>
+                        Ações Rápidas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 col-lg-3 mb-3">
+                            <div class="d-grid">
+                                <a href="{{ url_for('admin.admin_users') }}" class="btn btn-outline-primary">
+                                    <i class="bi bi-people me-2"></i>
+                                    Gerenciar Usuários
+                                </a>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-3 mb-3">
+                            <div class="d-grid">
+                                <a href="{{ url_for('servers.servers_list') }}" class="btn btn-outline-success">
+                                    <i class="bi bi-hdd-network me-2"></i>
+                                    Gerenciar Servidores
+                                </a>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-3 mb-3">
+                            <div class="d-grid">
+                                <button class="btn btn-outline-info" onclick="viewSystemLogs()">
+                                    <i class="bi bi-file-text me-2"></i>
+                                    Ver Logs do Sistema
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-3 mb-3">
+                            <div class="d-grid">
+                                <button class="btn btn-outline-warning" onclick="viewSystemConfig()">
+                                    <i class="bi bi-gear me-2"></i>
+                                    Configurações
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- User Management -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-people me-2"></i>
+                        Usuários Recentes
+                    </h5>
+                    <a href="{{ url_for('admin.admin_users') }}" class="btn btn-sm btn-primary">
+                        Ver Todos
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Usuário</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Status</th>
+                                    <th>Último Login</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in users[:10] %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-person-circle me-2"></i>
+                                            <strong>{{ user.username }}</strong>
+                                        </div>
+                                    </td>
+                                    <td>{{ user.email }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'danger' if user.role.value == 'admin' else 'success' if user.role.value == 'operator' else 'secondary' }}">
+                                            {{ user.role.value.title() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="status-badge status-{{ 'online' if user.is_active else 'offline' }}">
+                                            {{ 'Ativo' if user.is_active else 'Inativo' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if user.last_login %}
+                                            <small>{{ user.last_login.strftime('%d/%m/%Y %H:%M') }}</small>
+                                        {% else %}
+                                            <small class="text-muted">Nunca</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-warning" onclick="editUser({{ user.id }})" title="Editar">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            {% if user.id != current_user.id %}
+                                            <button class="btn btn-outline-{{ 'danger' if user.is_active else 'success' }}" 
+                                                    onclick="toggleUserStatus({{ user.id }})" 
+                                                    title="{{ 'Desativar' if user.is_active else 'Ativar' }}">
+                                                <i class="bi bi-{{ 'x-circle' if user.is_active else 'check-circle' }}"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <!-- System Status -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-activity me-2"></i>
+                        Status do Sistema
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Workers Celery</span>
+                            <span class="status-badge status-online" id="celery-status">Online</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Database</span>
+                            <span class="status-badge status-online" id="db-status">Conectado</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Redis</span>
+                            <span class="status-badge status-online" id="redis-status">Conectado</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Espaço em Disco</span>
+                            <span id="disk-usage">Carregando...</span>
+                        </div>
+                        <div class="progress mt-1" style="height: 10px;">
+                            <div class="progress-bar" id="disk-progress" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Activity -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-clock-history me-2"></i>
+                        Atividade Recente
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="recent-activity">
+                        <div class="text-center">
+                            <div class="loading-spinner"></div>
+                            <p class="text-muted mt-2">Carregando...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- System Configuration -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-sliders me-2"></i>
+                        Configurações do Sistema
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Configurações de Download</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Qualidades Aceitas</label>
+                                <p class="text-muted">{{ config.ACCEPTED_QUALITIES | join(', ') }}</p>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Downloads Simultâneos</label>
+                                <p class="text-muted">{{ config.MAX_CONCURRENT_DOWNLOADS }}</p>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Transferências Simultâneas</label>
+                                <p class="text-muted">{{ config.MAX_CONCURRENT_TRANSFERS }}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h6>Configurações de Diretório</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Diretório de Upload</label>
+                                <p class="text-muted"><code>{{ config.UPLOAD_DIR }}</code></p>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Diretório Temporário</label>
+                                <p class="text-muted"><code>{{ config.TEMP_DOWNLOAD_DIR }}</code></p>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Diretório de Logs</label>
+                                <p class="text-muted"><code>{{ config.LOG_DIR }}</code></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-end">
+                        <button class="btn btn-warning" onclick="editSystemConfig()">
+                            <i class="bi bi-pencil me-1"></i>
+                            Editar Configurações
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- User Edit Modal -->
+<div class="modal fade" id="userModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Usuário</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="user-modal-content">
+                <!-- Content will be loaded dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- System Logs Modal -->
+<div class="modal fade" id="logsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Logs do Sistema</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="logs-modal-content">
+                <!-- Content will be loaded dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Load system status
+    function loadSystemStatus() {
+        fetch('/api/admin/system_status')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateSystemStatus(data.status);
+                }
+            })
+            .catch(error => console.error('Error loading system status:', error));
+    }
+    
+    function updateSystemStatus(status) {
+        // Update system load
+        document.getElementById('system-load').textContent = status.cpu_usage + '%';
+        
+        // Update disk usage
+        const diskUsage = status.disk_usage;
+        document.getElementById('disk-usage').textContent = `${diskUsage.used}GB / ${diskUsage.total}GB`;
+        document.getElementById('disk-progress').style.width = diskUsage.percentage + '%';
+        document.getElementById('disk-progress').className = `progress-bar bg-${diskUsage.percentage > 90 ? 'danger' : diskUsage.percentage > 75 ? 'warning' : 'success'}`;
+        
+        // Update service statuses
+        document.getElementById('celery-status').className = `status-badge status-${status.celery_status}`;
+        document.getElementById('celery-status').textContent = status.celery_status === 'online' ? 'Online' : 'Offline';
+        
+        document.getElementById('db-status').className = `status-badge status-${status.db_status}`;
+        document.getElementById('db-status').textContent = status.db_status === 'online' ? 'Conectado' : 'Desconectado';
+        
+        document.getElementById('redis-status').className = `status-badge status-${status.redis_status}`;
+        document.getElementById('redis-status').textContent = status.redis_status === 'online' ? 'Conectado' : 'Desconectado';
+    }
+    
+    function loadRecentActivity() {
+        fetch('/api/admin/recent_activity')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayRecentActivity(data.activities);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading recent activity:', error);
+                document.getElementById('recent-activity').innerHTML = '<p class="text-danger">Erro ao carregar atividades</p>';
+            });
+    }
+    
+    function displayRecentActivity(activities) {
+        const container = document.getElementById('recent-activity');
+        
+        if (activities.length === 0) {
+            container.innerHTML = '<p class="text-muted">Nenhuma atividade recente</p>';
+            return;
+        }
+        
+        let html = '<div class="activity-list">';
+        activities.forEach(activity => {
+            const date = new Date(activity.timestamp);
+            html += `
+                <div class="activity-item mb-2">
+                    <div class="d-flex justify-content-between">
+                        <span class="fw-semibold">${activity.action.replace('_', ' ')}</span>
+                        <small class="text-muted">${date.toLocaleString()}</small>
+                    </div>
+                    <small class="text-muted">Por: ${activity.username}</small>
+                </div>
+            `;
+        });
+        html += '</div>';
+        
+        container.innerHTML = html;
+    }
+    
+    function editUser(userId) {
+        const modal = new bootstrap.Modal(document.getElementById('userModal'));
+        const modalContent = document.getElementById('user-modal-content');
+        
+        modalContent.innerHTML = '<div class="text-center"><div class="loading-spinner"></div></div>';
+        modal.show();
+        
+        // Load user edit form
+        fetch(`/api/admin/users/${userId}/edit`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    modalContent.innerHTML = data.form_html;
+                } else {
+                    modalContent.innerHTML = '<div class="alert alert-danger">Erro ao carregar dados do usuário</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading user:', error);
+                modalContent.innerHTML = '<div class="alert alert-danger">Erro ao carregar dados do usuário</div>';
+            });
+    }
+    
+    function toggleUserStatus(userId) {
+        if (!confirm('Tem certeza que deseja alterar o status deste usuário?')) {
+            return;
+        }
+        
+        fetch(`/api/admin/users/${userId}/toggle_status`, { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Erro: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error toggling user status:', error);
+                alert('Erro ao alterar status do usuário');
+            });
+    }
+    
+    function viewSystemLogs() {
+        const modal = new bootstrap.Modal(document.getElementById('logsModal'));
+        const modalContent = document.getElementById('logs-modal-content');
+        
+        modalContent.innerHTML = '<div class="text-center"><div class="loading-spinner"></div></div>';
+        modal.show();
+        
+        // Load system logs
+        fetch('/api/admin/system_logs')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displaySystemLogs(data.logs);
+                } else {
+                    modalContent.innerHTML = '<div class="alert alert-danger">Erro ao carregar logs</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading logs:', error);
+                modalContent.innerHTML = '<div class="alert alert-danger">Erro ao carregar logs</div>';
+            });
+    }
+    
+    function displaySystemLogs(logs) {
+        const modalContent = document.getElementById('logs-modal-content');
+        
+        let html = `
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Nível</th>
+                            <th>Mensagem</th>
+                            <th>Fonte</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        logs.forEach(log => {
+            const date = new Date(log.timestamp);
+            const levelClass = {
+                'error': 'text-danger',
+                'warning': 'text-warning',
+                'info': 'text-primary',
+                'debug': 'text-muted'
+            }[log.level] || '';
+            
+            html += `
+                <tr>
+                    <td><small>${date.toLocaleString()}</small></td>
+                    <td><span class="badge bg-${log.level === 'error' ? 'danger' : log.level === 'warning' ? 'warning' : 'primary'}">${log.level}</span></td>
+                    <td class="${levelClass}">${log.message}</td>
+                    <td><small>${log.source || 'System'}</small></td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table></div>';
+        modalContent.innerHTML = html;
+    }
+    
+    function cleanupLogs() {
+        if (!confirm('Tem certeza que deseja remover logs antigos? Esta ação não pode ser desfeita.')) {
+            return;
+        }
+        
+        fetch('/api/admin/cleanup_logs', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`${data.deleted_count} logs antigos foram removidos.`);
+                } else {
+                    alert('Erro: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error cleaning logs:', error);
+                alert('Erro ao limpar logs');
+            });
+    }
+    
+    function restartSystem() {
+        if (!confirm('Tem certeza que deseja reiniciar os workers? Isso pode interromper downloads ativos.')) {
+            return;
+        }
+        
+        fetch('/api/admin/restart_workers', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Workers reiniciados com sucesso!');
+                } else {
+                    alert('Erro: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error restarting workers:', error);
+                alert('Erro ao reiniciar workers');
+            });
+    }
+    
+    function viewSystemConfig() {
+        alert('Funcionalidade de configuração em desenvolvimento');
+    }
+    
+    function editSystemConfig() {
+        alert('Funcionalidade de edição de configuração em desenvolvimento');
+    }
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        loadSystemStatus();
+        loadRecentActivity();
+        
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            loadSystemStatus();
+            loadRecentActivity();
+        }, 30000);
+    });
+</script>
+{% endblock %}

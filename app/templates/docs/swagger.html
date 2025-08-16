@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Documentation - Swagger UI</title>
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui.css" />
+    <style>
+        html {
+            box-sizing: border-box;
+            overflow: -moz-scrollbars-vertical;
+            overflow-y: scroll;
+        }
+        
+        *, *:before, *:after {
+            box-sizing: inherit;
+        }
+        
+        body {
+            margin: 0;
+            background: #fafafa;
+        }
+        
+        .swagger-ui .topbar {
+            background-color: #343a40;
+            border-bottom: 1px solid #495057;
+        }
+        
+        .swagger-ui .topbar .download-url-wrapper {
+            display: none;
+        }
+        
+        .swagger-ui .info {
+            margin: 50px 0;
+        }
+        
+        .swagger-ui .info .title {
+            color: #3b4151;
+            font-family: sans-serif;
+            font-size: 36px;
+            font-weight: bold;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .swagger-ui .scheme-container {
+            background: #fff;
+            box-shadow: 0 1px 2px 0 rgba(0,0,0,.15);
+            padding: 30px 0;
+            text-align: center;
+        }
+        
+        .custom-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .custom-header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 300;
+        }
+        
+        .custom-header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+        }
+        
+        .back-button {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 9999;
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            transition: background-color 0.3s ease;
+        }
+        
+        .back-button:hover {
+            background: #0056b3;
+            color: white;
+            text-decoration: none;
+        }
+        
+        .api-key-notice {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px;
+            color: #0c5460;
+        }
+        
+        .api-key-notice h4 {
+            margin-top: 0;
+            color: #0c5460;
+        }
+        
+        .swagger-ui .parameters-col_description {
+            color: #3b4151;
+        }
+    </style>
+</head>
+<body>
+    <a href="{{ url_for('docs.api_docs') }}" class="back-button">
+        ← Voltar para Documentação
+    </a>
+    
+    <div class="custom-header">
+        <h1>MediaDown API v1.0</h1>
+        <p>Interface Interativa para Testes de API</p>
+    </div>
+    
+    <div class="api-key-notice">
+        <h4>🔑 Autenticação Necessária</h4>
+        <p>
+            <strong>Esta API requer autenticação via API Key.</strong><br>
+            Para testar os endpoints, clique no botão "Authorize" abaixo e insira sua API Key no campo <code>X-API-Key</code>.
+        </p>
+        <p>
+            <strong>Como obter uma API Key:</strong><br>
+            Entre em contato com o administrador do sistema ou gere uma através do painel administrativo.
+        </p>
+    </div>
+
+    <div id="swagger-ui"></div>
+
+    <script src="https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui-bundle.js" charset="UTF-8"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui-standalone-preset.js" charset="UTF-8"></script>
+    <script>
+        window.onload = function() {
+            // Begin Swagger UI call region
+            const ui = SwaggerUIBundle({
+                url: "{{ url_for('docs.openapi_spec') }}",
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIStandalonePreset
+                ],
+                plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl
+                ],
+                layout: "StandaloneLayout",
+                validatorUrl: null,
+                docExpansion: "list",
+                operationsSorter: "alpha",
+                tagsSorter: "alpha",
+                filter: true,
+                tryItOutEnabled: true,
+                requestInterceptor: function(request) {
+                    // Log requests for debugging
+                    console.log('API Request:', request);
+                    return request;
+                },
+                responseInterceptor: function(response) {
+                    // Log responses for debugging
+                    console.log('API Response:', response);
+                    return response;
+                },
+                onComplete: function() {
+                    console.log('Swagger UI loaded successfully');
+                    
+                    // Add custom styling
+                    const style = document.createElement('style');
+                    style.textContent = `
+                        .swagger-ui .auth-wrapper {
+                            display: flex;
+                            justify-content: center;
+                            margin: 20px 0;
+                        }
+                        
+                        .swagger-ui .btn.authorize {
+                            background: #49cc90;
+                            border-color: #49cc90;
+                            color: #fff;
+                            font-weight: bold;
+                            padding: 10px 20px;
+                            border-radius: 5px;
+                        }
+                        
+                        .swagger-ui .btn.authorize:hover {
+                            background: #3eb57c;
+                            border-color: #3eb57c;
+                        }
+                        
+                        .swagger-ui .opblock.opblock-post {
+                            border-color: #49cc90;
+                            background: rgba(73, 204, 144, 0.1);
+                        }
+                        
+                        .swagger-ui .opblock.opblock-get {
+                            border-color: #61affe;
+                            background: rgba(97, 175, 254, 0.1);
+                        }
+                        
+                        .swagger-ui .opblock.opblock-put {
+                            border-color: #fca130;
+                            background: rgba(252, 161, 48, 0.1);
+                        }
+                        
+                        .swagger-ui .opblock.opblock-delete {
+                            border-color: #f93e3e;
+                            background: rgba(249, 62, 62, 0.1);
+                        }
+                    `;
+                    document.head.appendChild(style);
+                },
+                // Custom request/response handling
+                requestSnippetsEnabled: true,
+                requestSnippets: {
+                    generators: {
+                        "curl_bash": {
+                            title: "cURL (bash)",
+                            syntax: "bash"
+                        },
+                        "curl_powershell": {
+                            title: "cURL (PowerShell)",
+                            syntax: "powershell"
+                        },
+                        "curl_cmd": {
+                            title: "cURL (CMD)",
+                            syntax: "bash"
+                        }
+                    },
+                    defaultExpanded: false,
+                    languages: null
+                },
+                supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch'],
+                // Custom authorization
+                initOAuth: {
+                    clientId: "mediadown-swagger-ui",
+                    clientSecret: "swagger-ui-secret",
+                    realm: "mediadown-api",
+                    appName: "MediaDown Swagger UI",
+                    scopeSeparator: " ",
+                    scopes: "api:read api:write",
+                    additionalQueryStringParams: {},
+                    useBasicAuthenticationWithAccessCodeGrant: false,
+                    usePkceWithAuthorizationCodeGrant: false
+                }
+            });
+            
+            // Custom JavaScript for enhanced functionality
+            window.ui = ui;
+            
+            // Add keyboard shortcuts
+            document.addEventListener('keydown', function(e) {
+                // Ctrl/Cmd + K to focus search
+                if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                    e.preventDefault();
+                    const searchInput = document.querySelector('.swagger-ui .filter-container input');
+                    if (searchInput) {
+                        searchInput.focus();
+                    }
+                }
+                
+                // Escape to clear search
+                if (e.key === 'Escape') {
+                    const searchInput = document.querySelector('.swagger-ui .filter-container input');
+                    if (searchInput && searchInput.value) {
+                        searchInput.value = '';
+                        searchInput.dispatchEvent(new Event('input'));
+                    }
+                }
+            });
+            
+            // Add tooltips for better UX
+            setTimeout(() => {
+                const buttons = document.querySelectorAll('.swagger-ui .opblock-summary');
+                buttons.forEach(button => {
+                    const method = button.querySelector('.opblock-summary-method');
+                    const path = button.querySelector('.opblock-summary-path');
+                    if (method && path) {
+                        button.title = `${method.textContent} ${path.textContent}`;
+                    }
+                });
+            }, 1000);
+        };
+        
+        // Helper function to copy API key to clipboard
+        function copyApiKey() {
+            const apiKey = 'your-api-key-here';
+            navigator.clipboard.writeText(apiKey).then(() => {
+                alert('API Key copiada para a área de transferência!');
+            });
+        }
+        
+        // Helper function to show example API key
+        function showExampleApiKey() {
+            alert('Exemplo de API Key: mediadown-api-key-2025\n\nSolicite sua API Key ao administrador do sistema.');
+        }
+    </script>
+    
+    <!-- Additional custom elements -->
+    <div style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;">
+        <button onclick="showExampleApiKey()" style="background: #17a2b8; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+            💡 Ver Exemplo de API Key
+        </button>
+    </div>
+</body>
+</html>

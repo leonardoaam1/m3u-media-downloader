@@ -121,6 +121,40 @@ def search():
         flash('Erro ao pesquisar conteúdo.', 'error')
         return render_template('main/search.html')
 
+@main_bp.route('/api/downloads/<int:download_id>/details')
+@login_required
+def api_download_details(download_id):
+    """Get download details for library"""
+    try:
+        download = Download.query.get_or_404(download_id)
+        
+        # Check permissions
+        if not current_user.is_admin() and download.user_id != current_user.id:
+            return jsonify({'success': False, 'error': 'Permissão negada'}), 403
+        
+        return jsonify({
+            'success': True,
+            'download': {
+                'id': download.id,
+                'title': download.title,
+                'content_type': download.content_type,
+                'season': download.season,
+                'episode': download.episode,
+                'year': download.year,
+                'quality': download.quality,
+                'file_size': download.file_size,
+                'destination_path': download.destination_path,
+                'server_name': download.server.name if download.server else None,
+                'tmdb_id': download.tmdb_id,
+                'tmdb_poster': download.tmdb_poster,
+                'completed_at': download.completed_at.strftime('%d/%m/%Y %H:%M') if download.completed_at else None
+            }
+        })
+        
+    except Exception as e:
+        logger.log_system('error', f'Error getting download details: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @main_bp.route('/api/stats')
 @login_required
 def api_stats():
@@ -255,6 +289,7 @@ def get_user_activity():
     except Exception as e:
         logger.log_system('error', f'Error getting user activity: {str(e)}')
         return []
+
 
 
 

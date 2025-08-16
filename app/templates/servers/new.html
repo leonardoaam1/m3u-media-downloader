@@ -1,0 +1,543 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Novo Servidor - MediaDown{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+                            <li class="breadcrumb-item"><a href="{{ url_for('servers.servers_list') }}">Servidores</a></li>
+                            <li class="breadcrumb-item active">Novo Servidor</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h3 mb-1">
+                        <i class="bi bi-plus-circle me-2"></i>
+                        Adicionar Novo Servidor
+                    </h1>
+                    <p class="text-muted mb-0">Configure um novo servidor de destino para armazenamento</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('servers.servers_list') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i>
+                        Voltar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Server Configuration Form -->
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-gear me-2"></i>
+                        Configuração do Servidor
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="server-form">
+                        <!-- Basic Information -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary mb-3">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    Informações Básicas
+                                </h6>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="name" class="form-label fw-semibold">
+                                        Nome do Servidor <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text" class="form-control" id="name" name="name" 
+                                           required placeholder="Ex: Movies Server">
+                                    <div class="form-text">Nome descritivo para identificação</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="description" class="form-label fw-semibold">Descrição</label>
+                                    <input type="text" class="form-control" id="description" name="description" 
+                                           placeholder="Ex: Servidor dedicado para filmes">
+                                    <div class="form-text">Descrição opcional do servidor</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Connection Settings -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary mb-3">
+                                    <i class="bi bi-wifi me-2"></i>
+                                    Configurações de Conexão
+                                </h6>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="host" class="form-label fw-semibold">
+                                        Host/IP <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text" class="form-control" id="host" name="host" 
+                                           required placeholder="192.168.1.100 ou server.domain.com">
+                                    <div class="form-text">Endereço IP ou nome do servidor</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label for="protocol" class="form-label fw-semibold">
+                                        Protocolo <span class="text-danger">*</span>
+                                    </label>
+                                    <select class="form-select" id="protocol" name="protocol" required onchange="updatePortByProtocol()">
+                                        <option value="">Selecione...</option>
+                                        <option value="sftp">SFTP (Seguro)</option>
+                                        <option value="nfs">NFS (Performance)</option>
+                                        <option value="smb">SMB (Windows)</option>
+                                        <option value="rsync">RSYNC (Sincronização)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label for="port" class="form-label fw-semibold">
+                                        Porta <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="number" class="form-control" id="port" name="port" 
+                                           required placeholder="22" min="1" max="65535">
+                                    <div class="form-text">Porta do serviço</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Authentication -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary mb-3">
+                                    <i class="bi bi-shield-lock me-2"></i>
+                                    Autenticação
+                                </h6>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="username" class="form-label fw-semibold">
+                                        Usuário <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text" class="form-control" id="username" name="username" 
+                                           required placeholder="media_user">
+                                    <div class="form-text">Nome de usuário para conexão</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="password" class="form-label fw-semibold">
+                                        Senha <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="password" name="password" 
+                                               required placeholder="••••••••">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('password')">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                    </div>
+                                    <div class="form-text">Senha para autenticação</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Storage Configuration -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary mb-3">
+                                    <i class="bi bi-folder me-2"></i>
+                                    Configuração de Armazenamento
+                                </h6>
+                            </div>
+                            
+                            <div class="col-12">
+                                <div class="mb-3">
+                                    <label for="base_path" class="form-label fw-semibold">
+                                        Diretório Base <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text" class="form-control" id="base_path" name="base_path" 
+                                           required placeholder="/mnt/" value="/mnt/">
+                                    <div class="form-text">Caminho base onde os arquivos serão armazenados</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-12">
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">
+                                        Tipos de Conteúdo Suportados <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="content_movie" 
+                                                       name="content_types" value="movie" onchange="updateDirectoryPreview()">
+                                                <label class="form-check-label" for="content_movie">
+                                                    <i class="bi bi-film me-2"></i>
+                                                    <strong>Filmes</strong>
+                                                    <br>
+                                                    <small class="text-muted">Organizado por gênero</small>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="content_series" 
+                                                       name="content_types" value="series" onchange="updateDirectoryPreview()">
+                                                <label class="form-check-label" for="content_series">
+                                                    <i class="bi bi-tv me-2"></i>
+                                                    <strong>Séries</strong>
+                                                    <br>
+                                                    <small class="text-muted">Organizado por plataforma</small>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="content_novela" 
+                                                       name="content_types" value="novela" onchange="updateDirectoryPreview()">
+                                                <label class="form-check-label" for="content_novela">
+                                                    <i class="bi bi-broadcast me-2"></i>
+                                                    <strong>Novelas</strong>
+                                                    <br>
+                                                    <small class="text-muted">Organizado por nome</small>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="form-text">Selecione os tipos de conteúdo que este servidor irá armazenar</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Directory Structure Preview -->
+                        <div class="row mb-4" id="directory-preview" style="display: none;">
+                            <div class="col-12">
+                                <h6 class="text-primary mb-3">
+                                    <i class="bi bi-folder-symlink me-2"></i>
+                                    Estrutura de Diretórios (Preview)
+                                </h6>
+                                <div class="alert alert-info">
+                                    <div id="directory-structure"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Test Connection -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6 class="card-title">
+                                            <i class="bi bi-wifi me-2"></i>
+                                            Teste de Conexão
+                                        </h6>
+                                        <p class="card-text text-muted">
+                                            Recomendamos testar a conexão antes de salvar para garantir que as configurações estão corretas.
+                                        </p>
+                                        <button type="button" class="btn btn-outline-primary" onclick="testConnection()" id="test-btn">
+                                            <i class="bi bi-wifi me-1"></i>
+                                            Testar Conexão
+                                        </button>
+                                        <div id="test-result" class="mt-3" style="display: none;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Form Actions -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="d-flex justify-content-between">
+                                    <a href="{{ url_for('servers.servers_list') }}" class="btn btn-outline-secondary">
+                                        <i class="bi bi-x me-1"></i>
+                                        Cancelar
+                                    </a>
+                                    
+                                    <div>
+                                        <button type="button" class="btn btn-outline-primary me-2" onclick="testConnection()">
+                                            <i class="bi bi-wifi me-1"></i>
+                                            Testar
+                                        </button>
+                                        <button type="submit" class="btn btn-success" id="submit-btn">
+                                            <i class="bi bi-check-lg me-1"></i>
+                                            Criar Servidor
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Help Card -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-question-circle me-2"></i>
+                        Guia de Configuração
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <strong>Protocolos Suportados:</strong>
+                        <ul class="list-unstyled mt-2">
+                            <li><i class="bi bi-shield-check text-success me-2"></i><strong>SFTP:</strong> Mais seguro, criptografado</li>
+                            <li><i class="bi bi-speedometer text-primary me-2"></i><strong>NFS:</strong> Melhor performance</li>
+                            <li><i class="bi bi-windows text-info me-2"></i><strong>SMB:</strong> Compatível com Windows</li>
+                            <li><i class="bi bi-arrow-repeat text-warning me-2"></i><strong>RSYNC:</strong> Sincronização eficiente</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <strong>Portas Padrão:</strong>
+                        <ul class="list-unstyled mt-2">
+                            <li>SFTP: 22</li>
+                            <li>NFS: 2049</li>
+                            <li>SMB: 445</li>
+                            <li>RSYNC: 873</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <small>
+                            <strong>Dica:</strong> Teste sempre a conexão antes de salvar para evitar problemas futuros.
+                        </small>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Example Configurations -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-lightbulb me-2"></i>
+                        Configurações Recomendadas
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <strong>Servidor de Filmes:</strong>
+                        <ul class="list-unstyled small mt-1">
+                            <li>• Tipo: Filmes</li>
+                            <li>• Diretório: /mnt/</li>
+                            <li>• Protocolo: SFTP ou NFS</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <strong>Servidor de Séries:</strong>
+                        <ul class="list-unstyled small mt-1">
+                            <li>• Tipo: Séries</li>
+                            <li>• Diretório: /mnt/</li>
+                            <li>• Organização: Por plataforma</li>
+                        </ul>
+                    </div>
+                    
+                    <div>
+                        <strong>Servidor de Novelas:</strong>
+                        <ul class="list-unstyled small mt-1">
+                            <li>• Tipo: Novelas</li>
+                            <li>• Diretório: /mnt/Novelas/</li>
+                            <li>• Organização: Por nome</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Protocol to port mapping
+    const protocolPorts = {
+        'sftp': 22,
+        'nfs': 2049,
+        'smb': 445,
+        'rsync': 873
+    };
+    
+    // Directory structures
+    const directoryStructures = {
+        'movie': [
+            'Acao', 'Animacao_Infantil', 'Animes', 'Cinema', 
+            'Comedia', 'Documentarios', 'Drama', 'Faroeste',
+            'Ficcao_Fantasia', 'Filmes_Legendados', 'Guerra',
+            'Lancamentos', 'Marvel', 'Romance', 'Suspense', 'Terror'
+        ],
+        'series': [
+            'Amazon', 'Animes_(Dub)', 'Animes_(Leg)', 'Apple_Tv',
+            'Desenhos_Animados', 'DiscoveryPlus', 'DisneyPlus',
+            'Drama', 'Globo_Play', 'HBOMax', 'Lionsgate', 'Looke',
+            'Natgeo', 'Netflix', 'ParamountPlus', 'Star_Plus'
+        ],
+        'novela': ['Novelas']
+    };
+    
+    function updatePortByProtocol() {
+        const protocol = document.getElementById('protocol').value;
+        const portField = document.getElementById('port');
+        
+        if (protocol && protocolPorts[protocol]) {
+            portField.value = protocolPorts[protocol];
+        }
+    }
+    
+    function togglePassword(fieldId) {
+        const field = document.getElementById(fieldId);
+        const button = field.nextElementSibling;
+        const icon = button.querySelector('i');
+        
+        if (field.type === 'password') {
+            field.type = 'text';
+            icon.classList.replace('bi-eye', 'bi-eye-slash');
+        } else {
+            field.type = 'password';
+            icon.classList.replace('bi-eye-slash', 'bi-eye');
+        }
+    }
+    
+    function updateDirectoryPreview() {
+        const basePath = document.getElementById('base_path').value || '/mnt/';
+        const selectedTypes = [];
+        
+        document.querySelectorAll('input[name="content_types"]:checked').forEach(cb => {
+            selectedTypes.push(cb.value);
+        });
+        
+        const previewDiv = document.getElementById('directory-preview');
+        const structureDiv = document.getElementById('directory-structure');
+        
+        if (selectedTypes.length === 0) {
+            previewDiv.style.display = 'none';
+            return;
+        }
+        
+        previewDiv.style.display = 'block';
+        
+        let html = `<strong>Estrutura que será criada em ${basePath}:</strong><br><br>`;
+        
+        selectedTypes.forEach(type => {
+            if (directoryStructures[type]) {
+                html += `<strong>${type.charAt(0).toUpperCase() + type.slice(1)}:</strong><br>`;
+                directoryStructures[type].forEach(dir => {
+                    html += `&nbsp;&nbsp;📁 ${basePath}${dir}/<br>`;
+                });
+                html += '<br>';
+            }
+        });
+        
+        structureDiv.innerHTML = html;
+    }
+    
+    function testConnection() {
+        const form = document.getElementById('server-form');
+        const formData = new FormData(form);
+        const testBtn = document.getElementById('test-btn');
+        const testResult = document.getElementById('test-result');
+        
+        // Validate required fields
+        const requiredFields = ['name', 'host', 'protocol', 'port', 'username', 'password'];
+        let isValid = true;
+        
+        requiredFields.forEach(field => {
+            const input = document.getElementById(field);
+            if (!input.value.trim()) {
+                input.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                input.classList.remove('is-invalid');
+            }
+        });
+        
+        if (!isValid) {
+            testResult.style.display = 'block';
+            testResult.innerHTML = '<div class="alert alert-danger">Por favor, preencha todos os campos obrigatórios.</div>';
+            return;
+        }
+        
+        // Check if at least one content type is selected
+        const contentTypes = document.querySelectorAll('input[name="content_types"]:checked');
+        if (contentTypes.length === 0) {
+            testResult.style.display = 'block';
+            testResult.innerHTML = '<div class="alert alert-danger">Selecione pelo menos um tipo de conteúdo.</div>';
+            return;
+        }
+        
+        testBtn.disabled = true;
+        testBtn.innerHTML = '<div class="loading-spinner me-1"></div>Testando...';
+        
+        testResult.style.display = 'block';
+        testResult.innerHTML = '<div class="alert alert-info">Testando conexão...</div>';
+        
+        // Simulate connection test (replace with actual API call)
+        setTimeout(() => {
+            const isSuccess = Math.random() > 0.3; // 70% success rate for demo
+            
+            if (isSuccess) {
+                testResult.innerHTML = `
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle me-2"></i>
+                        <strong>Conexão bem-sucedida!</strong><br>
+                        <small>• Conectado ao servidor ${formData.get('host')}:${formData.get('port')}</small><br>
+                        <small>• Protocolo ${formData.get('protocol').toUpperCase()} funcionando</small><br>
+                        <small>• Diretório ${formData.get('base_path')} acessível</small>
+                    </div>
+                `;
+            } else {
+                testResult.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-x-circle me-2"></i>
+                        <strong>Falha na conexão!</strong><br>
+                        <small>Verifique as configurações e tente novamente.</small>
+                    </div>
+                `;
+            }
+            
+            testBtn.disabled = false;
+            testBtn.innerHTML = '<i class="bi bi-wifi me-1"></i>Testar Conexão';
+        }, 2000);
+    }
+    
+    // Form submission
+    document.getElementById('server-form').addEventListener('submit', function(e) {
+        const contentTypes = document.querySelectorAll('input[name="content_types"]:checked');
+        if (contentTypes.length === 0) {
+            e.preventDefault();
+            alert('Por favor, selecione pelo menos um tipo de conteúdo.');
+            return;
+        }
+        
+        const submitBtn = document.getElementById('submit-btn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<div class="loading-spinner me-1"></div>Criando...';
+    });
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        // Update directory preview when base path changes
+        document.getElementById('base_path').addEventListener('input', updateDirectoryPreview);
+    });
+</script>
+{% endblock %}

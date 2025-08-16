@@ -1,0 +1,618 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Biblioteca - MediaDown{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-1">
+                        <i class="bi bi-collection me-2"></i>
+                        Biblioteca de Conteúdo
+                    </h1>
+                    <p class="text-muted mb-0">Explore todo o conteúdo organizado por servidor</p>
+                </div>
+                <div>
+                    <div class="btn-group" role="group">
+                        <input type="radio" class="btn-check" name="view-mode" id="grid-view" checked>
+                        <label class="btn btn-outline-primary" for="grid-view">
+                            <i class="bi bi-grid-3x3-gap"></i>
+                        </label>
+                        
+                        <input type="radio" class="btn-check" name="view-mode" id="list-view">
+                        <label class="btn btn-outline-primary" for="list-view">
+                            <i class="bi bi-list-ul"></i>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Search and Filters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form class="row g-3" id="search-form">
+                        <div class="col-md-4">
+                            <label for="search-query" class="form-label">Pesquisar</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="bi bi-search"></i>
+                                </span>
+                                <input type="text" class="form-control" id="search-query" name="q" 
+                                       placeholder="Digite o título..." value="{{ request.args.get('q', '') }}">
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label for="content-type-filter" class="form-label">Tipo</label>
+                            <select class="form-select" id="content-type-filter" name="type">
+                                <option value="">Todos</option>
+                                <option value="movie" {{ 'selected' if request.args.get('type') == 'movie' }}>Filmes</option>
+                                <option value="series" {{ 'selected' if request.args.get('type') == 'series' }}>Séries</option>
+                                <option value="novela" {{ 'selected' if request.args.get('type') == 'novela' }}>Novelas</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label for="server-filter" class="form-label">Servidor</label>
+                            <select class="form-select" id="server-filter" name="server">
+                                <option value="">Todos</option>
+                                {% for server_name in library_data.keys() %}
+                                <option value="{{ server_name }}" {{ 'selected' if request.args.get('server') == server_name }}>
+                                    {{ server_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <label for="sort-filter" class="form-label">Ordenar</label>
+                            <select class="form-select" id="sort-filter" name="sort">
+                                <option value="newest" {{ 'selected' if request.args.get('sort') == 'newest' }}>Mais Recentes</option>
+                                <option value="oldest" {{ 'selected' if request.args.get('sort') == 'oldest' }}>Mais Antigos</option>
+                                <option value="title" {{ 'selected' if request.args.get('sort') == 'title' }}>Título A-Z</option>
+                                <option value="title_desc" {{ 'selected' if request.args.get('sort') == 'title_desc' }}>Título Z-A</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-search me-1"></i>
+                                Filtrar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Library Content -->
+    {% if library_data %}
+        <!-- Statistics Summary -->
+        {% set total_items = library_data.values() | sum(attribute='count') %}
+        {% if total_items > 0 %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>{{ total_items }}</strong> item(s) encontrado(s) em <strong>{{ library_data.keys() | length }}</strong> servidor(es)
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Library by Server -->
+        {% for server_name, server_data in library_data.items() %}
+            {% if server_data.downloads %}
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-hdd-network me-2"></i>
+                                    {{ server_name }}
+                                    <span class="badge bg-secondary ms-2">{{ server_data.count }} itens</span>
+                                </h5>
+                                <div>
+                                    {% set server = server_data.server %}
+                                    <span class="status-badge status-{{ server.status.value }}">
+                                        {{ server.status.value.title() }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <!-- Grid View -->
+                            <div class="content-grid" id="grid-content-{{ loop.index }}">
+                                <div class="row g-3">
+                                    {% for download in server_data.downloads[:12] %}
+                                    <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
+                                        <div class="content-card">
+                                            <div class="content-poster">
+                                                {% if download.tmdb_poster %}
+                                                    <img src="https://image.tmdb.org/t/p/w300{{ download.tmdb_poster }}" 
+                                                         class="img-fluid rounded" 
+                                                         alt="{{ download.title }}"
+                                                         loading="lazy">
+                                                {% else %}
+                                                    <div class="content-placeholder">
+                                                        {% if download.content_type == 'movie' %}
+                                                            <i class="bi bi-film display-1"></i>
+                                                        {% elif download.content_type == 'series' %}
+                                                            <i class="bi bi-tv display-1"></i>
+                                                        {% else %}
+                                                            <i class="bi bi-broadcast display-1"></i>
+                                                        {% endif %}
+                                                    </div>
+                                                {% endif %}
+                                                
+                                                <!-- Overlay -->
+                                                <div class="content-overlay">
+                                                    <div class="content-actions">
+                                                        <button class="btn btn-sm btn-primary" onclick="viewDetails({{ download.id }})">
+                                                            <i class="bi bi-eye"></i>
+                                                        </button>
+                                                        <button class="btn btn-sm btn-outline-light" onclick="copyPath('{{ download.destination_path }}')">
+                                                            <i class="bi bi-clipboard"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="content-info">
+                                                <h6 class="content-title" title="{{ download.title }}">
+                                                    {{ download.title | truncate(25) }}
+                                                </h6>
+                                                <div class="content-meta">
+                                                    <span class="badge bg-{{ 'primary' if download.content_type == 'movie' else 'success' if download.content_type == 'series' else 'info' }}">
+                                                        {{ download.content_type.title() }}
+                                                    </span>
+                                                    <span class="badge bg-secondary">{{ download.quality }}</span>
+                                                </div>
+                                                {% if download.season and download.episode %}
+                                                <small class="text-muted d-block">
+                                                    S{{ download.season }}E{{ download.episode }}
+                                                </small>
+                                                {% endif %}
+                                                <small class="text-muted">
+                                                    {{ download.completed_at.strftime('%d/%m/%Y') if download.completed_at else 'N/A' }}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                
+                                {% if server_data.count > 12 %}
+                                <div class="text-center mt-3">
+                                    <button class="btn btn-outline-primary" onclick="loadMore('{{ server_name }}')">
+                                        <i class="bi bi-plus-lg me-1"></i>
+                                        Ver mais {{ server_data.count - 12 }} itens
+                                    </button>
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- List View -->
+                            <div class="content-list d-none" id="list-content-{{ loop.index }}">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Título</th>
+                                                <th>Tipo</th>
+                                                <th>Qualidade</th>
+                                                <th>Tamanho</th>
+                                                <th>Concluído</th>
+                                                <th>Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for download in server_data.downloads[:20] %}
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        {% if download.tmdb_poster %}
+                                                            <img src="https://image.tmdb.org/t/p/w92{{ download.tmdb_poster }}" 
+                                                                 class="rounded me-3" 
+                                                                 style="width: 40px; height: 60px; object-fit: cover;"
+                                                                 alt="{{ download.title }}">
+                                                        {% else %}
+                                                            <div class="bg-light rounded me-3 d-flex align-items-center justify-content-center" 
+                                                                 style="width: 40px; height: 60px;">
+                                                                {% if download.content_type == 'movie' %}
+                                                                    <i class="bi bi-film"></i>
+                                                                {% elif download.content_type == 'series' %}
+                                                                    <i class="bi bi-tv"></i>
+                                                                {% else %}
+                                                                    <i class="bi bi-broadcast"></i>
+                                                                {% endif %}
+                                                            </div>
+                                                        {% endif %}
+                                                        <div>
+                                                            <strong>{{ download.title }}</strong>
+                                                            {% if download.season and download.episode %}
+                                                                <br>
+                                                                <small class="text-muted">
+                                                                    Temporada {{ download.season }}, Episódio {{ download.episode }}
+                                                                </small>
+                                                            {% endif %}
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-{{ 'primary' if download.content_type == 'movie' else 'success' if download.content_type == 'series' else 'info' }}">
+                                                        {{ download.content_type.title() }}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-secondary">{{ download.quality }}</span>
+                                                </td>
+                                                <td>
+                                                    {% if download.file_size %}
+                                                        {{ (download.file_size / 1024 / 1024) | round(1) }} MB
+                                                    {% else %}
+                                                        <span class="text-muted">N/A</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if download.completed_at %}
+                                                        {{ download.completed_at.strftime('%d/%m/%Y %H:%M') }}
+                                                    {% else %}
+                                                        <span class="text-muted">N/A</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    <div class="btn-group btn-group-sm">
+                                                        <button class="btn btn-outline-primary" onclick="viewDetails({{ download.id }})" title="Detalhes">
+                                                            <i class="bi bi-eye"></i>
+                                                        </button>
+                                                        <button class="btn btn-outline-secondary" onclick="copyPath('{{ download.destination_path }}')" title="Copiar Caminho">
+                                                            <i class="bi bi-clipboard"></i>
+                                                        </button>
+                                                        {% if download.tmdb_id %}
+                                                        <a href="https://www.themoviedb.org/{{ 'movie' if download.content_type == 'movie' else 'tv' }}/{{ download.tmdb_id }}" 
+                                                           target="_blank" class="btn btn-outline-info" title="Ver no TMDB">
+                                                            <i class="bi bi-box-arrow-up-right"></i>
+                                                        </a>
+                                                        {% endif %}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        {% endfor %}
+    {% else %}
+        <!-- Empty State -->
+        <div class="row">
+            <div class="col-12">
+                <div class="text-center py-5">
+                    <i class="bi bi-collection display-1 text-muted"></i>
+                    <h5 class="text-muted mt-3">Biblioteca vazia</h5>
+                    <p class="text-muted">
+                        Nenhum conteúdo foi encontrado na biblioteca.
+                        {% if current_user.has_permission('upload_m3u') %}
+                            Faça upload de uma lista M3U para adicionar conteúdo.
+                        {% endif %}
+                    </p>
+                    {% if current_user.has_permission('upload_m3u') %}
+                    <a href="{{ url_for('downloads.upload_m3u') }}" class="btn btn-primary">
+                        <i class="bi bi-cloud-upload me-2"></i>
+                        Upload M3U
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Content Details Modal -->
+<div class="modal fade" id="contentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalhes do Conteúdo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modal-content">
+                <div class="text-center">
+                    <div class="loading-spinner"></div>
+                    <p class="text-muted mt-2">Carregando...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .content-card {
+        position: relative;
+        border-radius: 0.5rem;
+        overflow: hidden;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        background: white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .content-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .content-poster {
+        position: relative;
+        aspect-ratio: 2/3;
+        overflow: hidden;
+    }
+    
+    .content-poster img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .content-placeholder {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6c757d;
+    }
+    
+    .content-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .content-card:hover .content-overlay {
+        opacity: 1;
+    }
+    
+    .content-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .content-info {
+        padding: 1rem;
+    }
+    
+    .content-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        line-height: 1.3;
+    }
+    
+    .content-meta {
+        margin-bottom: 0.5rem;
+    }
+    
+    .content-meta .badge {
+        font-size: 0.7rem;
+        margin-right: 0.25rem;
+    }
+    
+    .view-toggle .btn-check:checked + .btn {
+        background-color: var(--bs-primary);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentViewMode = 'grid';
+    
+    // View mode toggle
+    document.addEventListener('DOMContentLoaded', function() {
+        const gridViewBtn = document.getElementById('grid-view');
+        const listViewBtn = document.getElementById('list-view');
+        
+        gridViewBtn.addEventListener('change', function() {
+            if (this.checked) {
+                switchViewMode('grid');
+            }
+        });
+        
+        listViewBtn.addEventListener('change', function() {
+            if (this.checked) {
+                switchViewMode('list');
+            }
+        });
+        
+        // Search form
+        document.getElementById('search-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const params = new URLSearchParams();
+            
+            for (let [key, value] of formData.entries()) {
+                if (value) {
+                    params.append(key, value);
+                }
+            }
+            
+            window.location.href = window.location.pathname + '?' + params.toString();
+        });
+    });
+    
+    function switchViewMode(mode) {
+        currentViewMode = mode;
+        
+        document.querySelectorAll('.content-grid').forEach(grid => {
+            if (mode === 'grid') {
+                grid.classList.remove('d-none');
+            } else {
+                grid.classList.add('d-none');
+            }
+        });
+        
+        document.querySelectorAll('.content-list').forEach(list => {
+            if (mode === 'list') {
+                list.classList.remove('d-none');
+            } else {
+                list.classList.add('d-none');
+            }
+        });
+    }
+    
+    function viewDetails(downloadId) {
+        const modal = new bootstrap.Modal(document.getElementById('contentModal'));
+        const modalContent = document.getElementById('modal-content');
+        
+        // Reset modal content
+        modalContent.innerHTML = `
+            <div class="text-center">
+                <div class="loading-spinner"></div>
+                <p class="text-muted mt-2">Carregando...</p>
+            </div>
+        `;
+        
+        modal.show();
+        
+        // Load content details
+        fetch(`/api/downloads/${downloadId}/details`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayContentDetails(data.download);
+                } else {
+                    modalContent.innerHTML = '<div class="alert alert-danger">Erro ao carregar detalhes</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading details:', error);
+                modalContent.innerHTML = '<div class="alert alert-danger">Erro ao carregar detalhes</div>';
+            });
+    }
+    
+    function displayContentDetails(download) {
+        const modalContent = document.getElementById('modal-content');
+        
+        const html = `
+            <div class="row">
+                <div class="col-md-4">
+                    ${download.tmdb_poster ? 
+                        `<img src="https://image.tmdb.org/t/p/w400${download.tmdb_poster}" class="img-fluid rounded">` :
+                        `<div class="bg-light rounded d-flex align-items-center justify-content-center" style="height: 300px;">
+                            <i class="bi bi-${download.content_type === 'movie' ? 'film' : 'tv'} display-1 text-muted"></i>
+                        </div>`
+                    }
+                </div>
+                <div class="col-md-8">
+                    <h4>${download.title}</h4>
+                    ${download.season && download.episode ? 
+                        `<p class="text-muted">Temporada ${download.season}, Episódio ${download.episode}</p>` : ''
+                    }
+                    
+                    <div class="mb-3">
+                        <span class="badge bg-primary me-1">${download.content_type}</span>
+                        <span class="badge bg-secondary me-1">${download.quality}</span>
+                        ${download.year ? `<span class="badge bg-dark">${download.year}</span>` : ''}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <strong>Servidor:</strong> ${download.server_name}<br>
+                        <strong>Caminho:</strong> <code>${download.destination_path}</code>
+                        <button class="btn btn-sm btn-outline-secondary ms-2" onclick="copyPath('${download.destination_path}')">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                    </div>
+                    
+                    ${download.file_size ? 
+                        `<div class="mb-3">
+                            <strong>Tamanho:</strong> ${(download.file_size / 1024 / 1024).toFixed(1)} MB
+                        </div>` : ''
+                    }
+                    
+                    <div class="mb-3">
+                        <strong>Concluído em:</strong> ${download.completed_at || 'N/A'}
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <a href="/downloads/${download.id}" class="btn btn-primary">
+                            <i class="bi bi-eye me-1"></i>
+                            Ver Detalhes Completos
+                        </a>
+                        ${download.tmdb_id ? 
+                            `<a href="https://www.themoviedb.org/${download.content_type === 'movie' ? 'movie' : 'tv'}/${download.tmdb_id}" 
+                               target="_blank" class="btn btn-outline-info">
+                                <i class="bi bi-box-arrow-up-right me-1"></i>
+                                Ver no TMDB
+                            </a>` : ''
+                        }
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        modalContent.innerHTML = html;
+    }
+    
+    function copyPath(path) {
+        navigator.clipboard.writeText(path).then(() => {
+            showToast('Caminho copiado para a área de transferência!', 'success');
+        }).catch(err => {
+            console.error('Error copying path:', err);
+            showToast('Erro ao copiar caminho', 'error');
+        });
+    }
+    
+    function loadMore(serverName) {
+        // Implementation for loading more content
+        window.location.href = `/library?server=${encodeURIComponent(serverName)}`;
+    }
+    
+    function showToast(message, type) {
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+        const alertHtml = `
+            <div class="alert ${alertClass} alert-dismissible fade show position-fixed" 
+                 style="top: 20px; right: 20px; z-index: 9999;">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', alertHtml);
+        
+        setTimeout(() => {
+            const alert = document.querySelector('.alert');
+            if (alert) {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            }
+        }, 3000);
+    }
+</script>
+{% endblock %}

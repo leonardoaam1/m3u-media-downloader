@@ -37,17 +37,8 @@ def create_app(config_name='default'):
     create_directories(app)
     
     # Register blueprints
-    from app.routes.auth import auth_bp
-    from app.routes.main import main_bp
-    from app.routes.downloads import downloads_bp
-    from app.routes.servers import servers_bp
-    from app.routes.admin import admin_bp
-    
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(main_bp)
-    app.register_blueprint(downloads_bp)
-    app.register_blueprint(servers_bp)
-    app.register_blueprint(admin_bp)
+    from app.routes import register_blueprints
+    register_blueprints(app)
     
     return app
 

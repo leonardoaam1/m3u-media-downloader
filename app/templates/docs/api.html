@@ -1,0 +1,348 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Documentação da API - MediaDown{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-1">
+                        <i class="bi bi-code-square me-2"></i>
+                        Documentação da API
+                    </h1>
+                    <p class="text-muted mb-0">API REST completa para integração com o MediaDown</p>
+                </div>
+                <div>
+                    <div class="btn-group">
+                        <a href="{{ url_for('docs.swagger') }}" class="btn btn-primary">
+                            <i class="bi bi-file-code me-1"></i>
+                            Swagger UI
+                        </a>
+                        <a href="{{ url_for('docs.redoc') }}" class="btn btn-outline-primary">
+                            <i class="bi bi-book me-1"></i>
+                            ReDoc
+                        </a>
+                        <a href="{{ url_for('docs.openapi_spec') }}" class="btn btn-outline-secondary" target="_blank">
+                            <i class="bi bi-download me-1"></i>
+                            OpenAPI JSON
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Start -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-lightning me-2"></i>
+                        Quick Start
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="bi bi-key me-2"></i>1. Obter API Key</h6>
+                            <p class="text-muted">
+                                Entre em contato com o administrador para obter sua API Key.
+                                A chave deve ser incluída no header <code>X-API-Key</code> de todas as requisições.
+                            </p>
+                            
+                            <h6><i class="bi bi-globe me-2"></i>2. Base URL</h6>
+                            <p class="text-muted">
+                                Todas as chamadas da API devem usar a base URL:
+                                <br>
+                                <code>{{ request.url_root }}api/v1/</code>
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="bi bi-code me-2"></i>3. Primeira Requisição</h6>
+                            <div class="bg-dark text-white p-3 rounded">
+                                <code>
+curl -H "X-API-Key: sua-api-key" \<br>
+&nbsp;&nbsp;&nbsp;&nbsp;{{ request.url_root }}api/v1/status
+                                </code>
+                            </div>
+                            
+                            <h6 class="mt-3"><i class="bi bi-check-circle me-2"></i>4. Verificar Resposta</h6>
+                            <p class="text-muted">
+                                Uma resposta <code>200 OK</code> com dados JSON indica que tudo está funcionando.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- API Overview -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-diagram-3 me-2"></i>
+                        Visão Geral da API
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <div class="border rounded p-3 h-100">
+                                <h6 class="text-primary">
+                                    <i class="bi bi-download me-2"></i>
+                                    Downloads
+                                </h6>
+                                <ul class="list-unstyled small">
+                                    <li>• Criar novos downloads</li>
+                                    <li>• Listar com filtros</li>
+                                    <li>• Controlar (pause/resume)</li>
+                                    <li>• Monitorar progresso</li>
+                                </ul>
+                                <code class="small">GET /downloads</code><br>
+                                <code class="small">POST /downloads</code>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-4">
+                            <div class="border rounded p-3 h-100">
+                                <h6 class="text-success">
+                                    <i class="bi bi-hdd-network me-2"></i>
+                                    Servidores
+                                </h6>
+                                <ul class="list-unstyled small">
+                                    <li>• Listar servidores</li>
+                                    <li>• Testar conectividade</li>
+                                    <li>• Verificar status</li>
+                                    <li>• Monitorar espaço</li>
+                                </ul>
+                                <code class="small">GET /servers</code><br>
+                                <code class="small">GET /servers/{id}/test</code>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-4">
+                            <div class="border rounded p-3 h-100">
+                                <h6 class="text-info">
+                                    <i class="bi bi-file-play me-2"></i>
+                                    M3U Processing
+                                </h6>
+                                <ul class="list-unstyled small">
+                                    <li>• Parse de listas M3U</li>
+                                    <li>• Validação de conteúdo</li>
+                                    <li>• Filtros de qualidade</li>
+                                    <li>• Estruturação de dados</li>
+                                </ul>
+                                <code class="small">POST /m3u/parse</code>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-4">
+                            <div class="border rounded p-3 h-100">
+                                <h6 class="text-warning">
+                                    <i class="bi bi-search me-2"></i>
+                                    Pesquisa
+                                </h6>
+                                <ul class="list-unstyled small">
+                                    <li>• Busca por título</li>
+                                    <li>• Filtros avançados</li>
+                                    <li>• Paginação</li>
+                                    <li>• Ordenação</li>
+                                </ul>
+                                <code class="small">GET /search</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <!-- Features -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-star me-2"></i>
+                        Recursos da API
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="bi bi-shield-check text-success me-2"></i>
+                        <span class="small">Autenticação por API Key</span>
+                    </div>
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="bi bi-speedometer text-primary me-2"></i>
+                        <span class="small">Rate Limiting</span>
+                    </div>
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="bi bi-arrow-clockwise text-info me-2"></i>
+                        <span class="small">Webhooks</span>
+                    </div>
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="bi bi-card-list text-warning me-2"></i>
+                        <span class="small">Paginação</span>
+                    </div>
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="bi bi-funnel text-secondary me-2"></i>
+                        <span class="small">Filtros Avançados</span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-file-earmark-text text-dark me-2"></i>
+                        <span class="small">OpenAPI 3.0</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Version Info -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Informações da Versão
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <strong>Versão Atual:</strong> v1.0
+                    </div>
+                    <div class="mb-2">
+                        <strong>Última Atualização:</strong> {{ moment().format('DD/MM/YYYY') }}
+                    </div>
+                    <div class="mb-2">
+                        <strong>Status:</strong> 
+                        <span class="badge bg-success">Estável</span>
+                    </div>
+                    <div>
+                        <strong>Suporte:</strong> 
+                        <a href="mailto:support@mediadown.com">support@mediadown.com</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Navigation Cards -->
+    <div class="row">
+        <div class="col-md-6 col-lg-3 mb-3">
+            <div class="card h-100 border-primary">
+                <div class="card-body text-center">
+                    <i class="bi bi-file-code display-4 text-primary mb-3"></i>
+                    <h6 class="card-title">Swagger UI</h6>
+                    <p class="card-text small text-muted">Interface interativa para testar todos os endpoints da API</p>
+                    <a href="{{ url_for('docs.swagger') }}" class="btn btn-primary btn-sm">
+                        Abrir Swagger
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-3 mb-3">
+            <div class="card h-100 border-info">
+                <div class="card-body text-center">
+                    <i class="bi bi-book display-4 text-info mb-3"></i>
+                    <h6 class="card-title">ReDoc</h6>
+                    <p class="card-text small text-muted">Documentação detalhada e bem formatada da API</p>
+                    <a href="{{ url_for('docs.redoc') }}" class="btn btn-info btn-sm">
+                        Abrir ReDoc
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-3 mb-3">
+            <div class="card h-100 border-success">
+                <div class="card-body text-center">
+                    <i class="bi bi-code-slash display-4 text-success mb-3"></i>
+                    <h6 class="card-title">Exemplos</h6>
+                    <p class="card-text small text-muted">Exemplos práticos de uso em diferentes linguagens</p>
+                    <a href="{{ url_for('docs.api_examples') }}" class="btn btn-success btn-sm">
+                        Ver Exemplos
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-3 mb-3">
+            <div class="card h-100 border-warning">
+                <div class="card-body text-center">
+                    <i class="bi bi-box display-4 text-warning mb-3"></i>
+                    <h6 class="card-title">SDKs</h6>
+                    <p class="card-text small text-muted">Bibliotecas oficiais para Python, JavaScript e Go</p>
+                    <a href="{{ url_for('docs.sdk_docs') }}" class="btn btn-warning btn-sm">
+                        Ver SDKs
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Common Operations -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-list-check me-2"></i>
+                        Operações Comuns
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Fluxo Básico de Download</h6>
+                            <ol class="small">
+                                <li>Verificar status do sistema: <code>GET /status</code></li>
+                                <li>Listar servidores disponíveis: <code>GET /servers</code></li>
+                                <li>Criar novo download: <code>POST /downloads</code></li>
+                                <li>Monitorar progresso: <code>GET /downloads/{id}</code></li>
+                                <li>Controlar download: <code>POST /downloads/{id}/control</code></li>
+                            </ol>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Processamento de M3U</h6>
+                            <ol class="small">
+                                <li>Parse do arquivo M3U: <code>POST /m3u/parse</code></li>
+                                <li>Revisar itens filtrados</li>
+                                <li>Criar downloads em lote: <code>POST /downloads</code></li>
+                                <li>Monitorar fila de downloads</li>
+                                <li>Verificar conclusões via webhook</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card-body .border {
+        transition: box-shadow 0.3s ease;
+    }
+    
+    .card-body .border:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    code {
+        background-color: #f8f9fa;
+        padding: 2px 4px;
+        border-radius: 3px;
+        font-size: 0.9em;
+    }
+    
+    .bg-dark code {
+        background-color: transparent;
+        color: #f8f9fa;
+    }
+</style>
+{% endblock %}

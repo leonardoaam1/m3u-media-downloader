@@ -3,6 +3,7 @@ import time
 from typing import Dict, Optional, List
 from app.services.logging_service import LoggingService
 from app.models.logs import TMDBLog, LogLevel
+from app.utils.cache_manager import cache_manager, CacheKey, cached
 
 class TMDBService:
     def __init__(self):
@@ -11,30 +12,31 @@ class TMDBService:
         self.base_url = 'https://api.themoviedb.org/3'
         self.language = current_app.config['TMDB_LANGUAGE']
         self.logger = LoggingService()
-        self.cache = {}  # Simple in-memory cache
-        self.cache_ttl = 3600  # 1 hour cache TTL
+        self.cache_ttl = 3600  # 1 hour cache TTL for API responses
+        self.genre_cache_ttl = 86400  # 24 hours for genres (change rarely)
         self.last_request_time = 0
         self.rate_limit_delay = 0.25  # 250ms between requests
     
     def search_content(self, title: str, content_type: str, year: Optional[int] = None) -> Optional[Dict]:
-        """Search for content in TMDB"""
+        """Search for content in TMDB with optimized caching"""
         start_time = time.time()
         
-        # Check cache first
-        cache_key = f"{title}_{content_type}_{year}"
-        if cache_key in self.cache:
-            cached_data = self.cache[cache_key]
-            if time.time() - cached_data['timestamp'] < self.cache_ttl:
-                self.logger.log_tmdb(
-                    LogLevel.INFO,
-                    f"Cache hit for: {title}",
-                    search_query=title,
-                    tmdb_id=cached_data['data'].get('id'),
-                    match_type='cache',
-                    cache_hit=True,
-                    api_response_time=0.001
-                )
-                return cached_data['data']
+        # Generate intelligent cache key
+        cache_key = CacheKey.tmdb_key(title, content_type, year)
+        
+        # Check multi-level cache first
+        cached_result = cache_manager.get(cache_key)
+        if cached_result is not None:
+            self.logger.log_tmdb(
+                LogLevel.INFO,
+                f"Cache hit for: {title}",
+                search_query=title,
+                tmdb_id=cached_result.get('id'),
+                match_type='cache',
+                cache_hit=True,
+                api_response_time=0.001
+            )
+            return cached_result
         
         # Rate limiting
         self._rate_limit()
@@ -50,11 +52,8 @@ class TMDBService:
             response_time = time.time() - start_time
             
             if result:
-                # Cache the result
-                self.cache[cache_key] = {
-                    'data': result,
-                    'timestamp': time.time()
-                }
+                # Cache the result with intelligent TTL
+                cache_manager.set(cache_key, result, l2_ttl=self.cache_ttl)
                 
                 self.logger.log_tmdb(
                     LogLevel.INFO,
@@ -162,11 +161,13 @@ class TMDBService:
         return None
     
     def get_genres(self, content_type: str = 'movie') -> List[Dict]:
-        """Get list of genres for content type"""
-        cache_key = f"genres_{content_type}"
+        """Get list of genres for content type with optimized caching"""
+        cache_key = CacheKey.generate("tmdb_genres", content_type, language=self.language)
         
-        if cache_key in self.cache:
-            return self.cache[cache_key]['data']
+        # Check cache first
+        cached_genres = cache_manager.get(cache_key)
+        if cached_genres is not None:
+            return cached_genres
         
         self._rate_limit()
         
@@ -184,10 +185,7 @@ class TMDBService:
             genres = data.get('genres', [])
             
             # Cache for longer (genres don't change often)
-            self.cache[cache_key] = {
-                'data': genres,
-                'timestamp': time.time()
-            }
+            cache_manager.set(cache_key, genres, l2_ttl=self.genre_cache_ttl)
             
             return genres
             
@@ -200,13 +198,13 @@ class TMDBService:
             return []
     
     def get_content_details(self, tmdb_id: int, content_type: str) -> Optional[Dict]:
-        """Get detailed information about content"""
-        cache_key = f"details_{content_type}_{tmdb_id}"
+        """Get detailed information about content with optimized caching"""
+        cache_key = CacheKey.generate("tmdb_details", content_type, tmdb_id, language=self.language)
         
-        if cache_key in self.cache:
-            cached_data = self.cache[cache_key]
-            if time.time() - cached_data['timestamp'] < self.cache_ttl:
-                return cached_data['data']
+        # Check cache first
+        cached_details = cache_manager.get(cache_key)
+        if cached_details is not None:
+            return cached_details
         
         self._rate_limit()
         
@@ -223,11 +221,8 @@ class TMDBService:
             
             data = response.json()
             
-            # Cache the result
-            self.cache[cache_key] = {
-                'data': data,
-                'timestamp': time.time()
-            }
+            # Cache the result (details are more stable, cache longer)
+            cache_manager.set(cache_key, data, l2_ttl=self.cache_ttl * 2)  # 2 hours
             
             return data
             
@@ -268,14 +263,64 @@ class TMDBService:
         self.last_request_time = time.time()
     
     def clear_cache(self):
-        """Clear the cache"""
-        self.cache.clear()
+        """Clear TMDB cache"""
+        from app.utils.cache_manager import invalidate_cache_pattern
+        
+        # Clear all TMDB related cache
+        patterns = [
+            "tmdb:*",
+            "tmdb_genres:*", 
+            "tmdb_details:*"
+        ]
+        
+        total_cleared = 0
+        for pattern in patterns:
+            cleared = invalidate_cache_pattern(pattern)
+            total_cleared += cleared
+        
+        return total_cleared
     
     def get_cache_stats(self) -> Dict:
         """Get cache statistics"""
+        from app.utils.cache_manager import get_cache_stats
+        
+        global_stats = get_cache_stats()
+        
         return {
-            'cache_size': len(self.cache),
-            'cache_ttl': self.cache_ttl,
-            'last_request_time': self.last_request_time
+            'tmdb_cache_ttl': self.cache_ttl,
+            'genre_cache_ttl': self.genre_cache_ttl,
+            'last_request_time': self.last_request_time,
+            'rate_limit_delay': self.rate_limit_delay,
+            'global_cache_stats': global_stats
         }
+    
+    @cached(ttl=300, key_prefix="tmdb_health")  # Cache health check for 5 minutes
+    def health_check(self) -> Dict:
+        """Check TMDB API health"""
+        try:
+            start_time = time.time()
+            
+            # Simple API call to check connectivity
+            params = {
+                'api_key': self.api_key
+            }
+            
+            response = requests.get(f"{self.base_url}/configuration", params=params, timeout=10)
+            response.raise_for_status()
+            
+            response_time = time.time() - start_time
+            
+            return {
+                'status': 'healthy',
+                'response_time': response_time,
+                'api_version': '3',
+                'timestamp': time.time()
+            }
+            
+        except Exception as e:
+            return {
+                'status': 'unhealthy',
+                'error': str(e),
+                'timestamp': time.time()
+            }
 

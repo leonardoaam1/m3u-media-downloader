@@ -1,0 +1,499 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Dashboard - MediaDown{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Welcome Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-1">
+                        <i class="bi bi-speedometer2 me-2"></i>
+                        Dashboard
+                    </h1>
+                    <p class="text-muted mb-0">
+                        Bem-vindo, {{ current_user.username }}! 
+                        <span class="badge bg-{{ 'primary' if current_user.role.value == 'admin' else 'success' if current_user.role.value == 'operator' else 'secondary' }}">
+                            {{ current_user.role.value.title() }}
+                        </span>
+                    </p>
+                </div>
+                <div class="text-end">
+                    <small class="text-muted">
+                        <i class="bi bi-clock me-1"></i>
+                        Último acesso: {{ current_user.last_login.strftime('%d/%m/%Y às %H:%M') if current_user.last_login else 'Primeiro acesso' }}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card stat-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Total Downloads</h6>
+                            <h2 class="card-title mb-0">{{ total_downloads or 0 }}</h2>
+                        </div>
+                        <div class="opacity-75">
+                            <i class="bi bi-download display-6"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="opacity-75">
+                            <i class="bi bi-arrow-up me-1"></i>
+                            {{ completed_downloads or 0 }} completados
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card stat-card success">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Downloads Ativos</h6>
+                            <h2 class="card-title mb-0">{{ active_downloads or 0 }}</h2>
+                        </div>
+                        <div class="opacity-75">
+                            <i class="bi bi-arrow-down-circle display-6"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="opacity-75">
+                            <i class="bi bi-activity me-1"></i>
+                            Em progresso agora
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card stat-card warning">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Servidores Online</h6>
+                            <h2 class="card-title mb-0">{{ online_servers or 0 }}/{{ total_servers or 0 }}</h2>
+                        </div>
+                        <div class="opacity-75">
+                            <i class="bi bi-hdd-network display-6"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="opacity-75">
+                            <i class="bi bi-circle-fill text-success me-1"></i>
+                            Conectados
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card stat-card danger">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Downloads Falharam</h6>
+                            <h2 class="card-title mb-0">{{ failed_downloads or 0 }}</h2>
+                        </div>
+                        <div class="opacity-75">
+                            <i class="bi bi-exclamation-triangle display-6"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="opacity-75">
+                            <i class="bi bi-arrow-repeat me-1"></i>
+                            Podem ser reprocessados
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Active Downloads -->
+        <div class="col-lg-8 mb-4">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-activity me-2"></i>
+                        Downloads Ativos
+                    </h5>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="refreshActiveDownloads()">
+                            <i class="bi bi-arrow-clockwise me-1"></i>
+                            Atualizar
+                        </button>
+                        {% if current_user.has_permission('upload_m3u') %}
+                        <a href="{{ url_for('downloads.upload_m3u') }}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-plus-lg me-1"></i>
+                            Novo Upload M3U
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="active-downloads-container">
+                        {% if recent_downloads %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Título</th>
+                                            <th>Status</th>
+                                            <th>Progresso</th>
+                                            <th>Servidor</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for download in recent_downloads %}
+                                        <tr>
+                                            <td>
+                                                <div>
+                                                    <strong>{{ download.title }}</strong>
+                                                    <br>
+                                                    <small class="text-muted">{{ download.quality }} • {{ download.content_type.title() }}</small>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="status-badge status-{{ download.status.value }}">
+                                                    {{ download.status.value.title() }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div class="progress" style="height: 20px;">
+                                                    <div class="progress-bar" 
+                                                         role="progressbar" 
+                                                         style="width: {{ download.progress_percentage or 0 }}%"
+                                                         aria-valuenow="{{ download.progress_percentage or 0 }}" 
+                                                         aria-valuemin="0" 
+                                                         aria-valuemax="100">
+                                                        {{ "%.1f"|format(download.progress_percentage or 0) }}%
+                                                    </div>
+                                                </div>
+                                                {% if download.download_speed %}
+                                                    <small class="text-muted">{{ download.download_speed }}</small>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if download.server %}
+                                                    <i class="bi bi-hdd-network me-1"></i>
+                                                    {{ download.server.name }}
+                                                {% else %}
+                                                    <span class="text-muted">N/A</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm">
+                                                    {% if download.status.value in ['downloading', 'transferring'] %}
+                                                        <button class="btn btn-outline-warning" onclick="pauseDownload({{ download.id }})">
+                                                            <i class="bi bi-pause"></i>
+                                                        </button>
+                                                    {% elif download.status.value == 'paused' %}
+                                                        <button class="btn btn-outline-success" onclick="resumeDownload({{ download.id }})">
+                                                            <i class="bi bi-play"></i>
+                                                        </button>
+                                                    {% elif download.status.value == 'failed' %}
+                                                        <button class="btn btn-outline-primary" onclick="retryDownload({{ download.id }})">
+                                                            <i class="bi bi-arrow-repeat"></i>
+                                                        </button>
+                                                    {% endif %}
+                                                    <a href="{{ url_for('downloads.download_detail', download_id=download.id) }}" class="btn btn-outline-info">
+                                                        <i class="bi bi-eye"></i>
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5">
+                                <i class="bi bi-download display-1 text-muted"></i>
+                                <h5 class="text-muted mt-3">Nenhum download ativo</h5>
+                                <p class="text-muted">
+                                    {% if current_user.has_permission('upload_m3u') %}
+                                        Faça upload de uma lista M3U para começar
+                                    {% else %}
+                                        Aguarde novos downloads serem adicionados
+                                    {% endif %}
+                                </p>
+                                {% if current_user.has_permission('upload_m3u') %}
+                                <a href="{{ url_for('downloads.upload_m3u') }}" class="btn btn-primary">
+                                    <i class="bi bi-cloud-upload me-2"></i>
+                                    Upload M3U
+                                </a>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quick Actions & Server Status -->
+        <div class="col-lg-4">
+            <!-- Quick Actions -->
+            {% if current_user.has_permission('upload_m3u') %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-lightning me-2"></i>
+                        Ações Rápidas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('downloads.upload_m3u') }}" class="btn btn-primary">
+                            <i class="bi bi-cloud-upload me-2"></i>
+                            Upload Lista M3U
+                        </a>
+                        <a href="{{ url_for('downloads.downloads_list') }}" class="btn btn-outline-primary">
+                            <i class="bi bi-list-ul me-2"></i>
+                            Ver Todos Downloads
+                        </a>
+                        <a href="{{ url_for('main.library') }}" class="btn btn-outline-success">
+                            <i class="bi bi-collection me-2"></i>
+                            Acessar Biblioteca
+                        </a>
+                        {% if current_user.has_permission('view_servers') %}
+                        <a href="{{ url_for('servers.servers_list') }}" class="btn btn-outline-info">
+                            <i class="bi bi-hdd-network me-2"></i>
+                            Gerenciar Servidores
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Server Status -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-hdd-network me-2"></i>
+                        Status dos Servidores
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="servers-status-container">
+                        <div class="text-center">
+                            <div class="loading-spinner"></div>
+                            <p class="text-muted mt-2">Carregando status...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Activity -->
+            {% if user_activity %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-activity me-2"></i>
+                        Atividade Recente
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        {% for activity in user_activity[:5] %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker"></div>
+                            <div class="timeline-content">
+                                <p class="mb-1">{{ activity.action.replace('_', ' ').title() }}</p>
+                                <small class="text-muted">{{ activity.timestamp.strftime('%d/%m %H:%M') }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .timeline {
+        position: relative;
+        padding-left: 1.5rem;
+    }
+    
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 0.5rem;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e9ecef;
+    }
+    
+    .timeline-item {
+        position: relative;
+        margin-bottom: 1rem;
+    }
+    
+    .timeline-marker {
+        position: absolute;
+        left: -1.25rem;
+        top: 0.25rem;
+        width: 8px;
+        height: 8px;
+        background: var(--bs-primary);
+        border-radius: 50%;
+    }
+    
+    .timeline-content {
+        background: #f8f9fa;
+        padding: 0.75rem;
+        border-radius: 0.5rem;
+        border-left: 3px solid var(--bs-primary);
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Real-time updates for dashboard
+    function refreshActiveDownloads() {
+        fetch('/api/downloads/active')
+            .then(response => response.json())
+            .then(data => {
+                // Update active downloads table
+                updateActiveDownloadsTable(data);
+            })
+            .catch(error => console.error('Error fetching active downloads:', error));
+    }
+    
+    function loadServerStatus() {
+        fetch('/api/servers/status')
+            .then(response => response.json())
+            .then(data => {
+                updateServerStatusDisplay(data);
+            })
+            .catch(error => {
+                console.error('Error fetching server status:', error);
+                document.getElementById('servers-status-container').innerHTML = 
+                    '<div class="text-center text-muted">Erro ao carregar status dos servidores</div>';
+            });
+    }
+    
+    function updateActiveDownloadsTable(downloads) {
+        const container = document.getElementById('active-downloads-container');
+        
+        if (downloads.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-5">
+                    <i class="bi bi-download display-1 text-muted"></i>
+                    <h5 class="text-muted mt-3">Nenhum download ativo</h5>
+                </div>
+            `;
+            return;
+        }
+        
+        let tableHTML = `
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Título</th>
+                            <th>Status</th>
+                            <th>Progresso</th>
+                            <th>Velocidade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        downloads.forEach(download => {
+            tableHTML += `
+                <tr>
+                    <td><strong>${download.title}</strong></td>
+                    <td><span class="status-badge status-${download.status}">${download.status}</span></td>
+                    <td>
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar" style="width: ${download.progress}%">${download.progress.toFixed(1)}%</div>
+                        </div>
+                    </td>
+                    <td>${download.speed || 'N/A'}</td>
+                </tr>
+            `;
+        });
+        
+        tableHTML += '</tbody></table></div>';
+        container.innerHTML = tableHTML;
+    }
+    
+    function updateServerStatusDisplay(servers) {
+        const container = document.getElementById('servers-status-container');
+        let html = '';
+        
+        if (servers.length === 0) {
+            html = '<div class="text-center text-muted">Nenhum servidor configurado</div>';
+        } else {
+            servers.forEach(server => {
+                const statusClass = server.status === 'online' ? 'text-success' : 'text-danger';
+                const statusIcon = server.status === 'online' ? 'bi-check-circle' : 'bi-x-circle';
+                
+                html += `
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <strong>${server.name}</strong>
+                            <br>
+                            <small class="text-muted">${server.protocol.toUpperCase()}</small>
+                        </div>
+                        <div class="text-end">
+                            <i class="bi ${statusIcon} ${statusClass}"></i>
+                            <span class="text-muted ms-1">${server.status}</span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        container.innerHTML = html;
+    }
+    
+    function pauseDownload(downloadId) {
+        // Implementation for pause download
+        console.log('Pausing download:', downloadId);
+    }
+    
+    function resumeDownload(downloadId) {
+        // Implementation for resume download
+        console.log('Resuming download:', downloadId);
+    }
+    
+    function retryDownload(downloadId) {
+        // Implementation for retry download
+        console.log('Retrying download:', downloadId);
+    }
+    
+    // Initialize dashboard
+    document.addEventListener('DOMContentLoaded', function() {
+        loadServerStatus();
+        
+        // Auto-refresh every 30 seconds
+        setInterval(function() {
+            refreshActiveDownloads();
+            loadServerStatus();
+        }, 30000);
+    });
+</script>
+{% endblock %}

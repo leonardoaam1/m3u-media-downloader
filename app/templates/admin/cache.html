@@ -1,0 +1,599 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Gerenciamento de Cache - MediaDown{% endblock %}
+
+{% block page_title %}
+<i class="fas fa-database text-primary"></i> Gerenciamento de Cache
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.cache-card {
+    border-left: 4px solid #007bff;
+    transition: all 0.3s ease;
+}
+
+.cache-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.stat-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 10px;
+}
+
+.health-good { color: #28a745; }
+.health-fair { color: #ffc107; }
+.health-poor { color: #dc3545; }
+
+.cache-key {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.85em;
+    background: #f8f9fa;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.ttl-badge {
+    font-size: 0.75em;
+}
+
+.progress-animated {
+    background: linear-gradient(90deg, #007bff, #0056b3, #007bff);
+    background-size: 200% 100%;
+    animation: gradient 2s ease infinite;
+}
+
+@keyframes gradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Cache Stats Overview -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="card-body text-center">
+                    <h5 class="card-title">
+                        <i class="fas fa-bullseye"></i> Hit Rate
+                    </h5>
+                    <h2 id="hit-rate">--%</h2>
+                    <small>Taxa de acerto do cache</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="card-body text-center">
+                    <h5 class="card-title">
+                        <i class="fas fa-memory"></i> Memória
+                    </h5>
+                    <h3 id="memory-usage">-- MB</h3>
+                    <small>Uso de memória Redis</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="card-body text-center">
+                    <h5 class="card-title">
+                        <i class="fas fa-key"></i> Chaves
+                    </h5>
+                    <h3 id="total-keys">--</h3>
+                    <small>Total de chaves</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="card-body text-center">
+                    <h5 class="card-title">
+                        <i class="fas fa-heartbeat"></i> Status
+                    </h5>
+                    <h3 id="cache-health">
+                        <span class="badge badge-secondary">Verificando...</span>
+                    </h3>
+                    <small>Saúde do cache</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Actions Panel -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card cache-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-tools"></i> Ações de Cache
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <button class="btn btn-success btn-block" onclick="warmCache()">
+                                <i class="fas fa-fire"></i> Aquecer Cache
+                            </button>
+                            <small class="text-muted">Pré-carrega dados frequentes</small>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <button class="btn btn-warning btn-block" onclick="cleanupCache()">
+                                <i class="fas fa-broom"></i> Limpar Expirado
+                            </button>
+                            <small class="text-muted">Remove chaves expiradas</small>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="dropdown">
+                                <button class="btn btn-danger btn-block dropdown-toggle" type="button" data-toggle="dropdown">
+                                    <i class="fas fa-trash"></i> Invalidar Cache
+                                </button>
+                                <div class="dropdown-menu">
+                                    <button class="dropdown-item" onclick="invalidateCache('downloads')">
+                                        <i class="fas fa-download"></i> Downloads
+                                    </button>
+                                    <button class="dropdown-item" onclick="invalidateCache('users')">
+                                        <i class="fas fa-users"></i> Usuários
+                                    </button>
+                                    <button class="dropdown-item" onclick="invalidateCache('servers')">
+                                        <i class="fas fa-server"></i> Servidores
+                                    </button>
+                                    <button class="dropdown-item" onclick="invalidateCache('tmdb')">
+                                        <i class="fas fa-film"></i> TMDB
+                                    </button>
+                                    <button class="dropdown-item" onclick="invalidateCache('system')">
+                                        <i class="fas fa-cog"></i> Sistema
+                                    </button>
+                                    <div class="dropdown-divider"></div>
+                                    <button class="dropdown-item text-danger" onclick="invalidateCache('all')">
+                                        <i class="fas fa-exclamation-triangle"></i> Limpar Tudo
+                                    </button>
+                                </div>
+                            </div>
+                            <small class="text-muted">Invalidar por categoria</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Detailed Stats -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card cache-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar"></i> Estatísticas Detalhadas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="detailed-stats">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="sr-only">Carregando...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card cache-card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle"></i> Informações Redis
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="redis-info">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="sr-only">Carregando...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Cache Keys Browser -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card cache-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-search"></i> Navegador de Chaves
+                    </h5>
+                    <div class="input-group" style="width: 300px;">
+                        <input type="text" class="form-control" id="key-pattern" placeholder="Padrão (ex: user:*, tmdb:*)" value="*">
+                        <div class="input-group-append">
+                            <button class="btn btn-outline-primary" onclick="loadCacheKeys()">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="cache-keys-container">
+                        <div class="text-center">
+                            <button class="btn btn-primary" onclick="loadCacheKeys()">
+                                <i class="fas fa-key"></i> Carregar Chaves
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Progresso -->
+<div class="modal fade" id="progressModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-cog fa-spin"></i> <span id="progress-title">Processando...</span>
+                </h5>
+            </div>
+            <div class="modal-body">
+                <div class="progress">
+                    <div class="progress-bar progress-animated" role="progressbar" style="width: 100%"></div>
+                </div>
+                <p class="mt-2 mb-0 text-center" id="progress-message">Aguarde...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let refreshInterval;
+
+$(document).ready(function() {
+    loadCacheStats();
+    
+    // Auto-refresh a cada 30 segundos
+    refreshInterval = setInterval(loadCacheStats, 30000);
+    
+    // Parar refresh quando sair da página
+    $(window).on('beforeunload', function() {
+        if (refreshInterval) {
+            clearInterval(refreshInterval);
+        }
+    });
+});
+
+function loadCacheStats() {
+    $.get('/api/admin/cache/stats')
+        .done(function(data) {
+            if (data.success) {
+                updateStatsDisplay(data);
+            }
+        })
+        .fail(function() {
+            console.error('Erro carregando estatísticas do cache');
+        });
+}
+
+function updateStatsDisplay(data) {
+    const stats = data.cache_stats;
+    const health = data.cache_health;
+    const memory = data.memory_info;
+    
+    // Hit rate
+    const hitRate = stats.combined?.hit_rate || 0;
+    $('#hit-rate').text(hitRate.toFixed(1) + '%');
+    
+    // Memory usage
+    const memoryUsed = memory.used_memory_human || '0B';
+    $('#memory-usage').text(memoryUsed);
+    
+    // Total keys
+    const totalKeys = (stats.l1_memory?.cache_size || 0) + (stats.l2_redis?.cache_size || 0);
+    $('#total-keys').text(totalKeys.toLocaleString());
+    
+    // Health status
+    const healthStatus = health.status || 'unknown';
+    let healthBadge = '';
+    let healthClass = '';
+    
+    switch(healthStatus) {
+        case 'healthy':
+            healthBadge = '<span class="badge badge-success">Saudável</span>';
+            healthClass = 'health-good';
+            break;
+        case 'fair':
+            healthBadge = '<span class="badge badge-warning">Regular</span>';
+            healthClass = 'health-fair';
+            break;
+        case 'poor':
+            healthBadge = '<span class="badge badge-danger">Ruim</span>';
+            healthClass = 'health-poor';
+            break;
+        default:
+            healthBadge = '<span class="badge badge-secondary">Desconhecido</span>';
+    }
+    
+    $('#cache-health').html(healthBadge);
+    
+    // Detailed stats
+    updateDetailedStats(stats);
+    
+    // Redis info
+    updateRedisInfo(memory);
+}
+
+function updateDetailedStats(stats) {
+    const html = `
+        <div class="row">
+            <div class="col-6">
+                <strong>L1 (Memória)</strong><br>
+                <small>Hits: ${(stats.l1_memory?.hits || 0).toLocaleString()}</small><br>
+                <small>Misses: ${(stats.l1_memory?.misses || 0).toLocaleString()}</small><br>
+                <small>Tamanho: ${(stats.l1_memory?.cache_size || 0).toLocaleString()}</small>
+            </div>
+            <div class="col-6">
+                <strong>L2 (Redis)</strong><br>
+                <small>Hits: ${(stats.l2_redis?.hits || 0).toLocaleString()}</small><br>
+                <small>Misses: ${(stats.l2_redis?.misses || 0).toLocaleString()}</small><br>
+                <small>Tamanho: ${(stats.l2_redis?.cache_size || 0).toLocaleString()}</small>
+            </div>
+        </div>
+        <hr>
+        <div class="row">
+            <div class="col-12">
+                <strong>Total de Requests:</strong> ${(stats.combined?.total_requests || 0).toLocaleString()}<br>
+                <strong>Tempo Médio:</strong> ${((stats.combined?.avg_response_time || 0) * 1000).toFixed(2)}ms
+            </div>
+        </div>
+    `;
+    
+    $('#detailed-stats').html(html);
+}
+
+function updateRedisInfo(memory) {
+    if (!memory || Object.keys(memory).length === 0) {
+        $('#redis-info').html('<p class="text-muted">Informações do Redis não disponíveis</p>');
+        return;
+    }
+    
+    const html = `
+        <div class="row">
+            <div class="col-6">
+                <strong>Uso Atual:</strong><br>
+                <span class="h5 text-primary">${memory.used_memory_human || '0B'}</span>
+            </div>
+            <div class="col-6">
+                <strong>Pico de Uso:</strong><br>
+                <span class="h5 text-info">${memory.used_memory_peak_human || '0B'}</span>
+            </div>
+        </div>
+        <hr>
+        <div class="row">
+            <div class="col-12">
+                <strong>Limite Máximo:</strong> ${memory.maxmemory_human || 'Unlimited'}<br>
+                <strong>Bytes Utilizados:</strong> ${(memory.used_memory || 0).toLocaleString()}
+            </div>
+        </div>
+    `;
+    
+    $('#redis-info').html(html);
+}
+
+function warmCache() {
+    showProgress('Aquecendo Cache...', 'Carregando dados frequentes...');
+    
+    $.post('/api/admin/cache/warm')
+        .done(function(data) {
+            hideProgress();
+            if (data.success) {
+                showAlert('success', 'Cache aquecido com sucesso!');
+                loadCacheStats();
+            } else {
+                showAlert('error', data.error || 'Erro aquecendo cache');
+            }
+        })
+        .fail(function() {
+            hideProgress();
+            showAlert('error', 'Erro na conexão');
+        });
+}
+
+function cleanupCache() {
+    showProgress('Limpando Cache...', 'Removendo chaves expiradas...');
+    
+    $.post('/api/admin/cache/cleanup')
+        .done(function(data) {
+            hideProgress();
+            if (data.success) {
+                showAlert('success', data.message);
+                loadCacheStats();
+            } else {
+                showAlert('error', data.error || 'Erro limpando cache');
+            }
+        })
+        .fail(function() {
+            hideProgress();
+            showAlert('error', 'Erro na conexão');
+        });
+}
+
+function invalidateCache(category) {
+    const categoryNames = {
+        'downloads': 'Downloads',
+        'users': 'Usuários',
+        'servers': 'Servidores',
+        'tmdb': 'TMDB',
+        'system': 'Sistema',
+        'all': 'TODO O CACHE'
+    };
+    
+    const categoryName = categoryNames[category] || category;
+    
+    if (category === 'all') {
+        if (!confirm('ATENÇÃO: Isso irá limpar TODO o cache!\n\nTem certeza?')) {
+            return;
+        }
+    }
+    
+    showProgress('Invalidando Cache...', `Limpando cache de ${categoryName}...`);
+    
+    $.ajax({
+        url: '/api/admin/cache/invalidate',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ category: category })
+    })
+    .done(function(data) {
+        hideProgress();
+        if (data.success) {
+            showAlert('success', data.message);
+            loadCacheStats();
+        } else {
+            showAlert('error', data.error || 'Erro invalidando cache');
+        }
+    })
+    .fail(function() {
+        hideProgress();
+        showAlert('error', 'Erro na conexão');
+    });
+}
+
+function loadCacheKeys() {
+    const pattern = $('#key-pattern').val() || '*';
+    
+    $('#cache-keys-container').html(`
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="sr-only">Carregando...</span>
+            </div>
+            <p>Carregando chaves...</p>
+        </div>
+    `);
+    
+    $.get('/api/admin/cache/keys', { pattern: pattern, limit: 200 })
+        .done(function(data) {
+            if (data.success) {
+                displayCacheKeys(data.keys, data.total, pattern);
+            } else {
+                $('#cache-keys-container').html('<p class="text-danger">Erro carregando chaves</p>');
+            }
+        })
+        .fail(function() {
+            $('#cache-keys-container').html('<p class="text-danger">Erro na conexão</p>');
+        });
+}
+
+function displayCacheKeys(keys, total, pattern) {
+    if (keys.length === 0) {
+        $('#cache-keys-container').html(`
+            <div class="text-center text-muted">
+                <i class="fas fa-search fa-3x mb-3"></i>
+                <p>Nenhuma chave encontrada para o padrão: <code>${pattern}</code></p>
+            </div>
+        `);
+        return;
+    }
+    
+    let html = `
+        <div class="mb-3">
+            <strong>${total.toLocaleString()} chaves encontradas</strong>
+            ${total > keys.length ? ` (mostrando primeiras ${keys.length})` : ''}
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Chave</th>
+                        <th>TTL</th>
+                        <th>Tipo</th>
+                        <th>Tamanho</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    keys.forEach(function(key) {
+        const ttlText = key.ttl > 0 ? `${key.ttl}s` : (key.ttl === -1 ? 'Permanente' : 'Expirada');
+        const ttlClass = key.ttl > 3600 ? 'badge-success' : (key.ttl > 300 ? 'badge-warning' : 'badge-danger');
+        
+        html += `
+            <tr>
+                <td><code class="cache-key">${key.key}</code></td>
+                <td><span class="badge ttl-badge ${ttlClass}">${ttlText}</span></td>
+                <td><span class="badge badge-info">${key.type}</span></td>
+                <td>${formatBytes(key.size)}</td>
+            </tr>
+        `;
+    });
+    
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    $('#cache-keys-container').html(html);
+}
+
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function showProgress(title, message) {
+    $('#progress-title').text(title);
+    $('#progress-message').text(message);
+    $('#progressModal').modal('show');
+}
+
+function hideProgress() {
+    $('#progressModal').modal('hide');
+}
+
+function showAlert(type, message) {
+    const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+    const icon = type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-triangle';
+    
+    const alert = $(`
+        <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+            <i class="${icon}"></i> ${message}
+            <button type="button" class="close" data-dismiss="alert">
+                <span>&times;</span>
+            </button>
+        </div>
+    `);
+    
+    $('body').prepend(alert);
+    
+    setTimeout(function() {
+        alert.alert('close');
+    }, 5000);
+}
+
+// Permitir busca com Enter
+$('#key-pattern').keypress(function(e) {
+    if (e.which === 13) {
+        loadCacheKeys();
+    }
+});
+</script>
+{% endblock %}

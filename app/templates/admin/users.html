@@ -1,0 +1,530 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Gerenciar Usuários - MediaDown{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+                            <li class="breadcrumb-item"><a href="{{ url_for('admin.admin_dashboard') }}">Administração</a></li>
+                            <li class="breadcrumb-item active">Usuários</li>
+                        </ol>
+                    </nav>
+                    <h1 class="h3 mb-1">
+                        <i class="bi bi-people me-2"></i>
+                        Gerenciar Usuários
+                    </h1>
+                    <p class="text-muted mb-0">Controle total sobre usuários e permissões do sistema</p>
+                </div>
+                <div>
+                    <button class="btn btn-primary" onclick="showCreateUserModal()">
+                        <i class="bi bi-person-plus me-1"></i>
+                        Novo Usuário
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Total de Usuários</h6>
+                            <h2 class="card-title mb-0">{{ users | length }}</h2>
+                        </div>
+                        <div class="opacity-75">
+                            <i class="bi bi-people display-6"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Usuários Ativos</h6>
+                            <h2 class="card-title mb-0">{{ users | selectattr('is_active') | list | length }}</h2>
+                        </div>
+                        <div class="opacity-75">
+                            <i class="bi bi-person-check display-6"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Administradores</h6>
+                            <h2 class="card-title mb-0">{{ users | selectattr('role.value', 'equalto', 'admin') | list | length }}</h2>
+                        </div>
+                        <div class="opacity-75">
+                            <i class="bi bi-shield-check display-6"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Operadores</h6>
+                            <h2 class="card-title mb-0">{{ users | selectattr('role.value', 'equalto', 'operator') | list | length }}</h2>
+                        </div>
+                        <div class="opacity-75">
+                            <i class="bi bi-person-gear display-6"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Users Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-table me-2"></i>
+                        Lista de Usuários
+                    </h5>
+                    <div>
+                        <div class="input-group" style="width: 300px;">
+                            <span class="input-group-text">
+                                <i class="bi bi-search"></i>
+                            </span>
+                            <input type="text" class="form-control" id="search-users" 
+                                   placeholder="Pesquisar usuários..." onkeyup="filterUsers()">
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="users-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th width="50">Avatar</th>
+                                    <th>Usuário</th>
+                                    <th>Email</th>
+                                    <th>Função</th>
+                                    <th>Status</th>
+                                    <th>Último Login</th>
+                                    <th>Criado em</th>
+                                    <th width="150">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in users %}
+                                <tr class="user-row" data-user-id="{{ user.id }}">
+                                    <td>
+                                        <div class="avatar-circle bg-{{ 'danger' if user.role.value == 'admin' else 'success' if user.role.value == 'operator' else 'secondary' }}">
+                                            {{ user.username[0].upper() }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div>
+                                            <strong class="user-name">{{ user.username }}</strong>
+                                            {% if user.id == current_user.id %}
+                                                <span class="badge bg-info ms-1">Você</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td class="user-email">{{ user.email }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'danger' if user.role.value == 'admin' else 'success' if user.role.value == 'operator' else 'secondary' }}">
+                                            {% if user.role.value == 'admin' %}
+                                                <i class="bi bi-shield-check me-1"></i>Administrador
+                                            {% elif user.role.value == 'operator' %}
+                                                <i class="bi bi-person-gear me-1"></i>Operador
+                                            {% else %}
+                                                <i class="bi bi-person me-1"></i>Visualizador
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="status-badge status-{{ 'online' if user.is_active else 'offline' }}" id="status-{{ user.id }}">
+                                            {{ 'Ativo' if user.is_active else 'Inativo' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if user.last_login %}
+                                            <small>{{ user.last_login.strftime('%d/%m/%Y %H:%M') }}</small>
+                                        {% else %}
+                                            <small class="text-muted">Nunca</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small>{{ user.created_at.strftime('%d/%m/%Y') if user.created_at else 'N/A' }}</small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-info" onclick="viewUserDetails({{ user.id }})" title="Ver Detalhes">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            <button class="btn btn-outline-warning" onclick="editUser({{ user.id }})" title="Editar">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            {% if user.id != current_user.id %}
+                                            <button class="btn btn-outline-{{ 'danger' if user.is_active else 'success' }}" 
+                                                    onclick="toggleUserStatus({{ user.id }})" 
+                                                    title="{{ 'Desativar' if user.is_active else 'Ativar' }}">
+                                                <i class="bi bi-{{ 'x-circle' if user.is_active else 'check-circle' }}"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create User Modal -->
+<div class="modal fade" id="createUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Criar Novo Usuário</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="create-user-form">
+                    <div class="mb-3">
+                        <label for="new-username" class="form-label">Nome de Usuário <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="new-username" name="username" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="new-email" class="form-label">Email <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" id="new-email" name="email" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="new-role" class="form-label">Função <span class="text-danger">*</span></label>
+                        <select class="form-select" id="new-role" name="role" required>
+                            <option value="">Selecione uma função...</option>
+                            <option value="admin">Administrador</option>
+                            <option value="operator">Operador</option>
+                            <option value="viewer">Visualizador</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="new-password" class="form-label">Senha <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="new-password" name="password" required>
+                            <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('new-password')">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="confirm-password" class="form-label">Confirmar Senha <span class="text-danger">*</span></label>
+                        <input type="password" class="form-control" id="confirm-password" name="confirm_password" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="new-is-active" name="is_active" checked>
+                            <label class="form-check-label" for="new-is-active">
+                                Usuário ativo
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="createUser()">Criar Usuário</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal fade" id="editUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Usuário</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="edit-user-content">
+                <!-- Content will be loaded dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- User Details Modal -->
+<div class="modal fade" id="userDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalhes do Usuário</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="user-details-content">
+                <!-- Content will be loaded dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .avatar-circle {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        font-size: 16px;
+    }
+    
+    .user-row {
+        cursor: pointer;
+    }
+    
+    .user-row:hover {
+        background-color: rgba(0,123,255,0.1);
+    }
+    
+    .status-badge {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+    }
+    
+    .status-online {
+        background-color: #198754;
+        color: white;
+    }
+    
+    .status-offline {
+        background-color: #6c757d;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function filterUsers() {
+        const searchTerm = document.getElementById('search-users').value.toLowerCase();
+        const rows = document.querySelectorAll('.user-row');
+        
+        rows.forEach(row => {
+            const username = row.querySelector('.user-name').textContent.toLowerCase();
+            const email = row.querySelector('.user-email').textContent.toLowerCase();
+            
+            if (username.includes(searchTerm) || email.includes(searchTerm)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+    
+    function showCreateUserModal() {
+        const modal = new bootstrap.Modal(document.getElementById('createUserModal'));
+        modal.show();
+    }
+    
+    function createUser() {
+        const form = document.getElementById('create-user-form');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+        data.is_active = document.getElementById('new-is-active').checked;
+        
+        // Validate password confirmation
+        if (data.password !== data.confirm_password) {
+            alert('As senhas não coincidem!');
+            return;
+        }
+        
+        // Remove confirm_password from data
+        delete data.confirm_password;
+        
+        fetch('/api/admin/users/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Erro: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error creating user:', error);
+            alert('Erro ao criar usuário');
+        });
+    }
+    
+    function editUser(userId) {
+        const modal = new bootstrap.Modal(document.getElementById('editUserModal'));
+        const modalContent = document.getElementById('edit-user-content');
+        
+        modalContent.innerHTML = '<div class="text-center"><div class="loading-spinner"></div></div>';
+        modal.show();
+        
+        fetch(`/api/admin/users/${userId}/edit`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    modalContent.innerHTML = data.form_html;
+                } else {
+                    modalContent.innerHTML = '<div class="alert alert-danger">Erro ao carregar dados do usuário</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading user:', error);
+                modalContent.innerHTML = '<div class="alert alert-danger">Erro ao carregar dados do usuário</div>';
+            });
+    }
+    
+    function viewUserDetails(userId) {
+        const modal = new bootstrap.Modal(document.getElementById('userDetailsModal'));
+        const modalContent = document.getElementById('user-details-content');
+        
+        modalContent.innerHTML = '<div class="text-center"><div class="loading-spinner"></div></div>';
+        modal.show();
+        
+        fetch(`/api/admin/users/${userId}/details`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayUserDetails(data.user);
+                } else {
+                    modalContent.innerHTML = '<div class="alert alert-danger">Erro ao carregar detalhes do usuário</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading user details:', error);
+                modalContent.innerHTML = '<div class="alert alert-danger">Erro ao carregar detalhes do usuário</div>';
+            });
+    }
+    
+    function displayUserDetails(user) {
+        const modalContent = document.getElementById('user-details-content');
+        
+        const html = `
+            <div class="row">
+                <div class="col-md-4 text-center">
+                    <div class="avatar-circle bg-${user.role === 'admin' ? 'danger' : user.role === 'operator' ? 'success' : 'secondary'} mx-auto mb-3" 
+                         style="width: 80px; height: 80px; font-size: 32px;">
+                        ${user.username.charAt(0).toUpperCase()}
+                    </div>
+                    <h5>${user.username}</h5>
+                    <p class="text-muted">${user.email}</p>
+                </div>
+                <div class="col-md-8">
+                    <div class="row">
+                        <div class="col-sm-6 mb-3">
+                            <strong>Função:</strong><br>
+                            <span class="badge bg-${user.role === 'admin' ? 'danger' : user.role === 'operator' ? 'success' : 'secondary'}">
+                                ${user.role === 'admin' ? 'Administrador' : user.role === 'operator' ? 'Operador' : 'Visualizador'}
+                            </span>
+                        </div>
+                        <div class="col-sm-6 mb-3">
+                            <strong>Status:</strong><br>
+                            <span class="status-badge status-${user.is_active ? 'online' : 'offline'}">
+                                ${user.is_active ? 'Ativo' : 'Inativo'}
+                            </span>
+                        </div>
+                        <div class="col-sm-6 mb-3">
+                            <strong>Criado em:</strong><br>
+                            ${new Date(user.created_at).toLocaleDateString()}
+                        </div>
+                        <div class="col-sm-6 mb-3">
+                            <strong>Último Login:</strong><br>
+                            ${user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Nunca'}
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <strong>Estatísticas:</strong>
+                        <ul class="list-unstyled mt-2">
+                            <li>Downloads criados: ${user.stats?.downloads || 0}</li>
+                            <li>Uploads M3U: ${user.stats?.m3u_uploads || 0}</li>
+                            <li>Último acesso: ${user.stats?.last_activity || 'N/A'}</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        modalContent.innerHTML = html;
+    }
+    
+    function toggleUserStatus(userId) {
+        if (!confirm('Tem certeza que deseja alterar o status deste usuário?')) {
+            return;
+        }
+        
+        fetch(`/api/admin/users/${userId}/toggle_status`, { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Erro: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error toggling user status:', error);
+                alert('Erro ao alterar status do usuário');
+            });
+    }
+    
+    function togglePassword(fieldId) {
+        const field = document.getElementById(fieldId);
+        const button = field.nextElementSibling;
+        const icon = button.querySelector('i');
+        
+        if (field.type === 'password') {
+            field.type = 'text';
+            icon.classList.replace('bi-eye', 'bi-eye-slash');
+        } else {
+            field.type = 'password';
+            icon.classList.replace('bi-eye-slash', 'bi-eye');
+        }
+    }
+</script>
+{% endblock %}

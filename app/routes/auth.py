@@ -29,14 +29,15 @@ def login():
                 return render_template('auth/login.html')
             
             login_user(user)
-            user.last_login = db.func.now()
+            from datetime import datetime
+            user.last_login = datetime.utcnow()
             db.session.commit()
             
-            logger.log_user_activity(
-                user.id,
-                'login',
-                {'ip': request.remote_addr, 'user_agent': request.headers.get('User-Agent')}
-            )
+            # logger.log_user_activity(
+            #     user.id,
+            #     'login',
+            #     {'ip': request.remote_addr, 'user_agent': request.headers.get('User-Agent')}
+            # )
             
             flash(f'Bem-vindo, {user.username}!', 'success')
             return redirect(url_for('main.dashboard'))
